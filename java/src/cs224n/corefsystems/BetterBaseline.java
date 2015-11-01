@@ -3,33 +3,36 @@ package cs224n.corefsystems;
 import java.util.Collection;
 import java.util.List;
 import java.util.ArrayList;
- 
+import java.util.Arrays;
 
 import cs224n.coref.ClusteredMention;
 import cs224n.coref.Document;
 import cs224n.coref.*;
+import cs224n.util.CounterMap;
 import cs224n.util.Pair;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 
 public class BetterBaseline implements CoreferenceSystem {
+  
+  public CounterMap<String,String> synonyms = new CounterMap<String,String>();
+  
+  // Create word sets that we will treat differently and/or exclude from certain rules
+  public static final String[] ALL_PRONOUNS = new String[] {"i","you","he","she","it","me","us","we","them",
+      "him","her","his","hers","my","yours","ours","our"};
+  public static final String[] ALL_ARTICLES = new String[] {"a","an","the"};
+  public static final Set<String> pronouns = new HashSet<String>(Arrays.asList(ALL_PRONOUNS));
+  public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
+
 
   @Override
   public void train(Collection<Pair<Document, List<Entity>>> trainingData) {
     for(Pair<Document, List<Entity>> pair : trainingData){
-      Document doc = pair.getFirst();
       List<Entity> clusters = pair.getSecond();
-      List<Mention> mentions = doc.getMentions();
-       //--Iterate over mentions
-       for(Mention m : mentions){
-       }
-       //--Iterate Over Coreferent Mention Pairs
-       for(Entity e : clusters){
-         for(Pair<Mention, Mention> mentionPair : e.orderedMentionPairs()){
-         //System.out.println(""+mentionPair.getFirst() + " and " + mentionPair.getSecond() );
-         }
-       }
+      
+      trainSynonyms(clusters);
     }  
   }
 
@@ -97,6 +100,36 @@ public class BetterBaseline implements CoreferenceSystem {
     return commonRatio;
   }
   
+  /**
+   * Updates CounterMap of co-occurences in the mention words
+   */
+  public void trainSynonyms(List<Entity> clusters) {
+    for (Entity e : clusters) {
+      // Put all mention words into a List
+      List<String> mentionWords = new ArrayList<String>();
+      
+      for (Mention mention : e.mentions) {
+        for (String word : mention.gloss().split(" ")) {
+          if (!isPronoun(word) && !isArticle(word)) {
+            mentionWords.add(word);
+          }
+        }
+      }
+      
+      // Store count of all co-occurences 
+      for (int i=0; i < mentionWords.size(); i++) {
+        String iWord = mentionWords.get(i);
+        for (int j=0; j < mentionWords.size(); j++) {
+          if (i != 0) {
+            String jWord = mentionWords.get(j);
+            synonyms.incrementCount(iWord, jWord, 1);
+          }
+        }
+      }
+    }
+  }
+  
+  
   /** 
    * check if two string contain exactly the same set of words which may not be in the same order
    */
@@ -108,11 +141,27 @@ public class BetterBaseline implements CoreferenceSystem {
     }    
     return flag;
   }
-
-}
-
   
-
-
-
-    
+  /**
+   * Returns TRUE if the word is a pronoun, otherwise FALSE
+   */
+  public boolean isPronoun(String word) {
+    if (pronouns.contains(word.toLowerCase())) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
+  
+  /**
+   * Returns TRUE if the word is an article, otherwise FALSE
+   */
+  public boolean isArticle(String word) {
+    if (articles.contains(word.toLowerCase())) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+}
