@@ -44,15 +44,14 @@ public class BetterBaseline implements CoreferenceSystem {
 
     @Override
     public List<ClusteredMention> runCoreference(Document doc) {
-		// TODO Auto-generated method stub
-	 
+ 	 
             List<ClusteredMention> mentions = new ArrayList<ClusteredMention>();
             Map<String,Entity> clusters = new HashMap<String,Entity>();
             //(for each mention...)
             for(Mention m : doc.getMentions()){
               //(...get its text)
-              String mentionString = m.gloss().toLowerCase();
-               String similarWord = containSameWords(clusters.keySet(), mentionString); 
+               String mentionString = m.gloss().toLowerCase();
+               String similarWord = partialMatch(clusters.keySet(), mentionString); 
               //(...if we've seen this text before...)
               if(similarWord!=null | clusters.containsKey(mentionString)){
                 //(...add it to the cluster)
@@ -89,21 +88,21 @@ public class BetterBaseline implements CoreferenceSystem {
  
        }
 
-   // check if two strings contain the same words
-    public String containSameWords(Set<String> stringSet, String a){
+     //use the overlap percent to decide if a stringset contains a specific string
+     public String partialMatch(Set<String> stringSet, String a){
          if (stringSet!=null){
             for (String string : stringSet){
-                if (hasSameWords(string, a) > 0.67)
+                if (countOverlapPercent(string, a) > 0.67)
                         return string.toLowerCase();
             }
         }
         return null;
     }
     
-    
-    public double hasSameWords (String a, String b) {
-           int nword  = 0;
-           int ncommon = 0;
+     // compute the overlap percent of the two strings
+     public double countOverlapPercent (String a, String b) {
+           int nWord  = 0;
+           int nCommon = 0;
            String longStr;
            String shortStr;
            if (a.length() > b.length()){
@@ -117,12 +116,12 @@ public class BetterBaseline implements CoreferenceSystem {
            
            for (String word : longStr.split(" ")){
                if (word!="the"){
-                     nword++;
+                     nWord++;
                     if (shortStr.toLowerCase().contains(word.toLowerCase()))
-                        ncommon++;
+                        nCommon++;
                     }    
            }
-           double commonRatio =ncommon* 1.0/nword;
+           double commonRatio =nCommon* 1.0/nWord;
            return commonRatio;
        }
                
