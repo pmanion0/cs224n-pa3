@@ -56,7 +56,9 @@ public class BetterBaseline implements CoreferenceSystem {
     return mentions;
   }
 
-//use the overlap percent to decide if a stringset contains a specific string
+/**
+ * use the overlap percent to decide if a String Set contains a specific string
+ */
   public String partialMatch(Set<String> stringSet, String a){
     if (stringSet!=null){
       for (String string : stringSet){
@@ -67,7 +69,9 @@ public class BetterBaseline implements CoreferenceSystem {
     return null;
   }
 
-// compute the overlap percent of the two strings
+/**
+ * compute the percent of the words the two string overlap with each other
+ */
   public double countOverlapPercent (String a, String b) {
     int nWord  = 0;
     int nCommon = 0;
@@ -93,8 +97,10 @@ public class BetterBaseline implements CoreferenceSystem {
     return commonRatio;
   }
   
-  //check if two string contain exactly the same words though probably different order
-  public boolean containsUnorderred(String a, String b) {
+  /** 
+   * check if two string contain exactly the same set of words which may not be in the same order
+   */
+  public boolean containsUnorderredWords(String a, String b) {
     boolean flag = true;
     for (String word : a.split(" ")){
       if (!b.toLowerCase().contains(word.toLowerCase()))
