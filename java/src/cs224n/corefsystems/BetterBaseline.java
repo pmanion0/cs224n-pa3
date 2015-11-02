@@ -200,7 +200,7 @@ public class BetterBaseline implements CoreferenceSystem {
    * Returns TRUE if the word is a pronoun, otherwise FALSE
    */
   public boolean parseIsNoun(String tag) {
-    if (parseNouns.contains(word.toLowerCase())) {
+    if (parseNouns.contains(tag.toLowerCase())) {
       return true;
     } else {
       return false;
