@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import cs224n.coref.ClusteredMention;
-import cs224n.coref.Document;
 import cs224n.coref.*;
 import cs224n.util.CounterMap;
 import cs224n.util.Pair;
@@ -41,10 +39,15 @@ public class BetterBaseline implements CoreferenceSystem {
 
   @Override
   public List<ClusteredMention> runCoreference(Document doc) {
-    List<ClusteredMention> mentions = new ArrayList<ClusteredMention>();
-    Map<String,Entity> clusters = new HashMap<String,Entity>();
+    List<ClusteredMention> output;
     
-    for(Mention m : doc.getMentions()){
+    // Phase 1: Exact Matches
+    output = exactMatch(null, doc);
+    
+    // Phase 2: Partial Matches
+    output = partialMatch(output, doc);
+    
+    /*for(Mention m : doc.getMentions()){
       String mentionString = m.gloss().toLowerCase();
       String similarWord = partialMatch(clusters.keySet(), mentionString); 
        if(similarWord!=null | clusters.containsKey(mentionString)){
@@ -58,26 +61,73 @@ public class BetterBaseline implements CoreferenceSystem {
          mentions.add(newCluster);
          clusters.put(mentionString,newCluster.entity);
        }
+    }*/
+    
+    return output;
+  }
+  
+  
+  /**
+   * Cluster all mentions that are exact string matches
+   */
+  public List<ClusteredMention> exactMatch(List<ClusteredMention> currentClusters, Document doc) {
+    Map<String,Entity> clusters = new HashMap<String,Entity>();
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    
+    for (Mention m : doc.getMentions()) {
+      String mentionString = m.gloss().toLowerCase();
+      if (clusters.containsKey(mentionString)) {
+        output.add(m.markCoreferent(clusters.get(mentionString)));
+      } else {
+        ClusteredMention newCluster = m.markSingleton();
+        output.add(newCluster);
+      }
     }
-    return mentions;
+    return output;
+  }
+  
+  /**
+   * Combine clusters with some percent overlap in 
+   */
+  
+  public List<ClusteredMention> partialMatch(List<ClusteredMention> currentClusters, Document doc) {
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    
+    for (ClusteredMention curr : currentClusters) {
+      String text = curr.mention.gloss();
+      Entity bestMatch = getBestMatch(currentClusters, text);
+      
+      if (bestMatch != null) {
+        curr.mention.changeCoreference(bestMatch);
+      }
+      output.add(curr);
+    }
+    return output;
   }
 
-/**
- * use the overlap percent to decide if a String Set contains a specific string
- */
-  public String partialMatch(Set<String> stringSet, String a){
-    if (stringSet!=null){
-      for (String string : stringSet){
-        if (countOverlapPercent(string, a) > 0.67)
-          return string.toLowerCase();
+
+  /**
+   * Use the overlap percent to decide if a String Set contains a specific string
+   */
+  private static final double MATCH_THRESHOLD = 0.67;
+  
+  public Entity getBestMatch(List<ClusteredMention> clusters, String newText) {
+    if (clusters != null) {
+      for (ClusteredMention cm : clusters) {
+        String clusterText = cm.mention.gloss();
+        // TODO: Right now this is not returning the best match
+        if (countOverlapPercent(clusterText, newText) > MATCH_THRESHOLD) {
+          return cm.entity;
+        }
       }
     }
     return null;
   }
-
-/**
- * compute the percent of the words the two string overlap with each other
- */
+  
+  
+  /**
+   * Compute the percent of the words the two string overlap with each other
+   */
   public double countOverlapPercent (String a, String b) {
     int nWord  = 0;
     int nCommon = 0;
