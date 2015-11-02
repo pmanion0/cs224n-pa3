@@ -23,8 +23,11 @@ public class BetterBaseline implements CoreferenceSystem {
   public static final String[] ALL_PRONOUNS = new String[] {"i","you","he","she","it","me","us","we","them",
       "him","her","his","hers","my","yours","ours","our"};
   public static final String[] ALL_ARTICLES = new String[] {"a","an","the"};
+  public static final String[] ALL_PARSE_NOUNS = new String[] {"NN","NNS","NNP","NNPS"};
+  
   public static final Set<String> pronouns = new HashSet<String>(Arrays.asList(ALL_PRONOUNS));
   public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
+  public static final Set<String> parseNouns = new HashSet<String>(Arrays.asList(ALL_PARSE_NOUNS));
 
 
   @Override
@@ -55,7 +58,7 @@ public class BetterBaseline implements CoreferenceSystem {
          mentions.add(newCluster);
          clusters.put(mentionString,newCluster.entity);
        }
-    }  
+    }
     return mentions;
   }
 
@@ -141,6 +144,19 @@ public class BetterBaseline implements CoreferenceSystem {
     }    
     return flag;
   }
+  
+  
+  /**
+   * Returns TRUE if the word is a pronoun, otherwise FALSE
+   */
+  public boolean parseIsNoun(String tag) {
+    if (parseNouns.contains(word.toLowerCase())) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
   
   /**
    * Returns TRUE if the word is a pronoun, otherwise FALSE
