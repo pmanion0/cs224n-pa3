@@ -120,7 +120,7 @@ public class BetterBaseline implements CoreferenceSystem {
       for (int i=0; i < mentionWords.size(); i++) {
         String iWord = mentionWords.get(i);
         for (int j=0; j < mentionWords.size(); j++) {
-          if (i != 0) {
+          if (i != j) {
             String jWord = mentionWords.get(j);
             synonyms.incrementCount(iWord, jWord, 1);
           }
