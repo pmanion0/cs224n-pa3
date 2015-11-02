@@ -47,22 +47,6 @@ public class BetterBaseline implements CoreferenceSystem {
     // Phase 2: Partial Matches
     output = partialMatch(output, doc);
     
-    /*for(Mention m : doc.getMentions()){
-      String mentionString = m.gloss().toLowerCase();
-      String similarWord = partialMatch(clusters.keySet(), mentionString); 
-       if(similarWord!=null | clusters.containsKey(mentionString)){
-         if (clusters.containsKey(mentionString))
-           mentions.add(m.markCoreferent(clusters.get(mentionString)));
-         else
-           mentions.add(m.markCoreferent(clusters.get(similarWord)));
-       }
-       else{
-         ClusteredMention newCluster = m.markSingleton();
-         mentions.add(newCluster);
-         clusters.put(mentionString,newCluster.entity);
-       }
-    }*/
-    
     return output;
   }
   
@@ -89,7 +73,6 @@ public class BetterBaseline implements CoreferenceSystem {
   /**
    * Combine clusters with some percent overlap in 
    */
-  
   public List<ClusteredMention> partialMatch(List<ClusteredMention> currentClusters, Document doc) {
     List<ClusteredMention> output = new ArrayList<ClusteredMention>();
     
@@ -104,7 +87,7 @@ public class BetterBaseline implements CoreferenceSystem {
     }
     return output;
   }
-
+  
 
   /**
    * Use the overlap percent to decide if a String Set contains a specific string
@@ -112,16 +95,20 @@ public class BetterBaseline implements CoreferenceSystem {
   private static final double MATCH_THRESHOLD = 0.67;
   
   public Entity getBestMatch(List<ClusteredMention> clusters, String newText) {
+    Entity bestEntity = null;
+    double bestOverlap = 0.0;
+    
     if (clusters != null) {
       for (ClusteredMention cm : clusters) {
         String clusterText = cm.mention.gloss();
-        // TODO: Right now this is not returning the best match
-        if (countOverlapPercent(clusterText, newText) > MATCH_THRESHOLD) {
-          return cm.entity;
+        double overlap = countOverlapPercent(clusterText, newText);
+        if (overlap > MATCH_THRESHOLD && overlap > bestOverlap) {
+          bestOverlap = overlap;
+          bestEntity = cm.entity;
         }
       }
     }
-    return null;
+    return bestEntity;
   }
   
   
