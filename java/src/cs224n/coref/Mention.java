@@ -127,6 +127,17 @@ public class Mention implements Serializable, Decodable {
   public ClusteredMention markCoreferent(ClusteredMention otherMention){
     return markCoreferent(otherMention.entity);
   }
+  
+  /**
+   * Change the coreference for this mention
+   */
+  public ClusteredMention changeCoreference(Entity cluster) {
+    if (corefferentWith != null) {
+      corefferentWith.remove(this);
+      corefferentWith = null;
+    }
+    return markCoreferent(cluster);
+  }
 
   /**
    * Mark this mention as a singleton (for now, at least)
