@@ -29,11 +29,11 @@ public class BetterBaseline implements CoreferenceSystem {
 
   @Override
   public void train(Collection<Pair<Document, List<Entity>>> trainingData) {
-    for(Pair<Document, List<Entity>> pair : trainingData){
+    /*for(Pair<Document, List<Entity>> pair : trainingData){
       List<Entity> clusters = pair.getSecond();
       
       trainSynonyms(clusters);
-    }  
+    }*/
   }
 
   @Override
