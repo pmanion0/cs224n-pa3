@@ -217,4 +217,16 @@ public class BetterBaseline implements CoreferenceSystem {
       return false;
     }
   }
+  
+  
+  /**
+   * Get all entities present in the ClusteredMention list
+   */
+  public Set<Entity> getEntities(List<ClusteredMention> clusters) {
+    Set<Entity> entities = new HashSet<Entity>();
+    for (ClusteredMention cm: clusters) {
+      entities.add(cm.entity);
+    }
+    return entities;
+  }
 }
