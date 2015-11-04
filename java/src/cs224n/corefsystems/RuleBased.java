@@ -47,13 +47,13 @@ public class RuleBased implements CoreferenceSystem {
     // Phase 3: Strict Head Matches
     output = strictHeadMatch(output, doc);
             
-    // Phase 4: Strict Head Matches
+    // Phase 4: Strict Head Matches - Var1
     output = strictHeadMatchVar1(output, doc);
     
-    // Phase 5: Strict Head Matches
+    // Phase 5: Strict Head Matches - Var2
     output = strictHeadMatchVar2(output, doc);
     
-    // Phase 6: Strict Head Matches
+    // Phase 6: Relaxed Head Matches
     output = relaxedHeadMatch(output, doc);
     
     // Phase 7: Pronoun Matches
@@ -77,6 +77,7 @@ public class RuleBased implements CoreferenceSystem {
       } else {
         ClusteredMention newCluster = m.markSingleton();
         output.add(newCluster);
+        clusters.put(mentionString,newCluster.entity);
       }
     }
     return output;
@@ -102,7 +103,6 @@ public class RuleBased implements CoreferenceSystem {
     return output;
   }
 
-  
 
   /**
    * phase 3. - check if a mention satisfies strict head matching with an current cluster
@@ -164,7 +164,6 @@ public class RuleBased implements CoreferenceSystem {
    */
   public List<ClusteredMention> strictHeadMatchVar2(List<ClusteredMention> currentClusters, Document doc) {
     List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
     for (ClusteredMention curr : currentClusters) {
       Mention mention = curr.mention;
       Entity bestMatch = getStrictHeadMatchVar2(currentClusters, mention);
@@ -177,7 +176,6 @@ public class RuleBased implements CoreferenceSystem {
     return output;
   }
 
-  
 
   /**
    * phase 5. - check if a mention satisfies strict head matching variant 2 with an current cluster
