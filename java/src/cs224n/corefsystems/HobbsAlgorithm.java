@@ -17,9 +17,12 @@ public class HobbsAlgorithm {
   
   public static Pair<Integer,Integer> parse(Document d, int sentenceNum, Mention m) {
     Sentence s = d.sentences.get(sentenceNum);
+    int minUID, antecedent;
     
     int startIndex = m.beginIndexInclusive;
     int endIndex = m.endIndexExclusive;
+    
+    LinkedList<Pair<String,Integer>> pathToStart = s.parse.pathToIndex(startIndex);
     
     // 1. Begin at the NP immediately dominating the pronoun
     int parentUID = commonParentIndex(s, startIndex, endIndex-1);
@@ -30,15 +33,15 @@ public class HobbsAlgorithm {
     
     // 3. Traverse all branches below X to the left of p, left-to right, breadth-first.
     //    Propose as antecedent any NP that has a NP or S between it and X
-    int minUID = getMinPathUID(s.parse.pathToIndex(startIndex));
-    int antecedent = getAntecedent(s.parse, minUID, xUID);
+    minUID = getMinPathUID(s.parse.pathToIndex(startIndex));
+    antecedent = getAntecedent(s.parse, minUID, xUID);
     if (antecedent > -1) {
       return new Pair<Integer,Integer>(antecedent, sentenceNum);
     }
     
     int mainSUID = getHighestSUID(s, startIndex);
     
-    while (mainSUID != xUID) {
+    while (mainSUID != -1 && mainSUID != xUID) {
       // 5. From node X, go up the tree to the first NP or S. Call it X, and the path p.
       xUID = getX(s, startIndex, xUID);
       Tree<String> subtree = returnSubtree(s.parse, xUID);
@@ -48,11 +51,9 @@ public class HobbsAlgorithm {
       //    propose X as antecedent (The original said “did not pass through the N’ that
       //    X immediately dominates”, but the Penn Treebank grammar lacks N’ nodes….)
       if (subtree.getLabel().equals("NP")) {
-        LinkedList<Pair<String,Integer>> subpath = subtree.pathToIndex(startIndex);
-        
-        String pathTag = subpath.get(1).getFirst();
-        if (!isHead(pathTag)) {
-          return new Pair<Integer,Integer>(subpath.get(1).getSecond(), sentenceNum);
+        Pair<String,Integer> pairBelowX = getPairBelowOnPath(subtree.getUniqueIndex(), pathToStart);
+        if (!isHead(pairBelowX.getFirst())) {
+          return new Pair<Integer,Integer>(pairBelowX.getSecond(), sentenceNum);
         }
       }
       
@@ -86,7 +87,6 @@ public class HobbsAlgorithm {
         }
         
       }
-      
        // 9. Go to step 4
     }
     
@@ -106,6 +106,15 @@ public class HobbsAlgorithm {
     return new Pair<Integer,Integer>(-1, -1);
   }
   
+  public static Pair<String,Integer> getPairBelowOnPath(int uid, LinkedList<Pair<String,Integer>> path) {
+    for (int i=0; i < path.size()-1; i++) {
+      Pair<String,Integer> pair = path.get(i);
+      if (pair.getSecond() == uid)
+        return path.get(i+1);
+    }
+    return new Pair<String,Integer>("???",-1);
+  }
+  
   /**
    * Get the uniqueID of the highest S in the sentence (on the path to the mention)
    */
@@ -119,6 +128,9 @@ public class HobbsAlgorithm {
   }
   
   public static int getAntecedent(Tree<String> tree, int minUID, int xUID) {
+    if (tree == null || minUID == -1 || xUID == -1)
+      return -1;
+    
     Tree<String> subtree = returnSubtree(tree, xUID);
     List<Integer> matchingUIDs = getTagUIDs(subtree, "NP");
     matchingUIDs.addAll(getTagUIDs(subtree, "S"));
@@ -391,6 +403,7 @@ public class HobbsAlgorithm {
     ss.add(s1);
     
     Document d = new Document("test", ss);
+    System.err.println(exampleTree1.getYield());
     //Pair<Integer,Integer> out = parse(d, 1);
     //System.err.println("-- parse() --");
     //System.err.println(out);
