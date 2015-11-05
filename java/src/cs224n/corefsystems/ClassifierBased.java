@@ -1,6 +1,7 @@
 package cs224n.corefsystems;
 
 import cs224n.coref.*;
+import static cs224n.corefsystems.RuleBased.ALL_ARTICLES;
 import cs224n.util.Pair;
 import edu.stanford.nlp.classify.LinearClassifier;
 import edu.stanford.nlp.classify.LinearClassifierFactory;
@@ -20,6 +21,7 @@ import static edu.stanford.nlp.util.logging.Redwood.Util.*;
  * @author Gabor Angeli (angeli at cs.stanford)
  */
 public class ClassifierBased implements CoreferenceSystem {
+          public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
 
 	private static <E> Set<E> mkSet(E[] array){
 		Set<E> rtn = new HashSet<E>();
@@ -40,7 +42,22 @@ public class ClassifierBased implements CoreferenceSystem {
 			Feature.HW_Lemma.class,
 			Feature.HW_Noun.class,
 			Feature.HW_ProperNoun.class,
-			Feature.HW_PluralNoun.class
+			Feature.HW_PluralNoun.class,
+      Feature.HW_WordInclusion.class,
+      Feature.HW_CompatibleModifiers.class,
+      Feature.HW_Unigram.class,
+      Feature.HW_Bigram.class,
+      Feature.HW_OnePronoun.class,
+      Feature.HW_BothPronoun.class,
+      Feature.HW_BothContainUppercase.class,
+      Feature.HW_NumberMatch.class,
+      Feature.HW_StrictNumberMatch.class,
+      Feature.HW_GenderMatch.class,
+      Feature.HW_StrictGenderMatch.class,
+      Feature.HW_PersonMatch.class,
+      Feature.HW_StrictPersonMatch.class,
+      Feature.HW_SentenceDist.class,
+      Feature.HW_MentionDist.class,
 
 			//skeleton for how to create a pair feature
 			//Pair.make(Feature.IsFeature1.class, Feature.IsFeature2.class),
@@ -56,7 +73,7 @@ public class ClassifierBased implements CoreferenceSystem {
 
 	public FeatureExtractor<Pair<Mention,ClusteredMention>,Feature,Boolean> extractor = new FeatureExtractor<Pair<Mention, ClusteredMention>, Feature, Boolean>() {
 		private <E> Feature feature(Class<E> clazz, Pair<Mention,ClusteredMention> input, Option<Double> count){
-			
+
 			//--Variables
 			Mention onPrix = input.getFirst(); //the first mention (referred to as m_i in the handout)
 			Mention candidate = input.getSecond().mention; //the second mention (referred to as m_j in the handout)
@@ -103,10 +120,216 @@ public class ClassifierBased implements CoreferenceSystem {
 			  return new Feature.HW_PluralNoun(
             onPrix.headToken().isPluralNoun() == candidate.headToken().isPluralNoun());
 			}
+                        else if(clazz.equals(Feature.HW_WordInclusion.class)) {
+
+                                return new Feature.HW_WordInclusion(isWordInclusion(candidateCluster,onPrix));
+			}
+                       else if(clazz.equals(Feature.HW_CompatibleModifiers.class)) {
+
+                                return new Feature.HW_CompatibleModifiers(isCompatibleModifiers( candidate,onPrix));
+			}
+                       else if(clazz.equals(Feature.HW_Unigram.class)) {
+
+                                return new Feature.HW_Unigram(countOverlap( candidate.gloss(),onPrix.gloss())== 1);
+                       }
+                      else if(clazz.equals(Feature.HW_Bigram.class)) {
+
+                                return new Feature.HW_Bigram(countOverlap( candidate.gloss(),onPrix.gloss())== 2);
+			}
+                      else if(clazz.equals(Feature.HW_OnePronoun.class)) {
+
+                                return new Feature.HW_OnePronoun(Pronoun.isSomePronoun(candidate.gloss())||Pronoun.isSomePronoun(onPrix.gloss()));
+			}
+                     else if(clazz.equals(Feature.HW_BothPronoun.class)) {
+
+                                return new Feature.HW_BothPronoun(Pronoun.isSomePronoun(candidate.gloss())&&Pronoun.isSomePronoun(onPrix.gloss()));
+			}
+                    else if(clazz.equals(Feature.HW_BothContainUppercase.class)) {
+
+                                return new Feature.HW_BothContainUppercase(containUppercase(candidate.gloss())&&containUppercase(onPrix.gloss()));
+			}
+                    else if(clazz.equals(Feature.HW_NumberMatch.class)) {
+
+                                return new Feature.HW_NumberMatch(isNumberMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_StrictNumberMatch.class)) {
+
+                                return new Feature.HW_StrictNumberMatch(isStrictNumberMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_GenderMatch.class)) {
+
+                                return new Feature.HW_GenderMatch(isGenderMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_StrictGenderMatch.class)) {
+
+                                return new Feature.HW_StrictGenderMatch(isStrictGenderMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_PersonMatch.class)) {
+
+                                return new Feature.HW_PersonMatch(isPersonMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_StrictPersonMatch.class)) {
+
+                                return new Feature.HW_StrictPersonMatch(isStrictPersonMatch(candidate ,onPrix));
+			}
+                    else if(clazz.equals(Feature.HW_SentenceDist.class)) {
+
+                                return new Feature.HW_SentenceDist(onPrix.doc.indexOfSentence(onPrix.sentence) - candidate.doc.indexOfSentence(candidate.sentence));
+			}
+                    else if(clazz.equals(Feature.HW_MentionDist.class)) {
+
+                                return new Feature.HW_MentionDist(onPrix.doc.indexOfMention(onPrix) - candidate.doc.indexOfMention(candidate));
+			}
 			else {
 				throw new IllegalArgumentException("Unregistered feature: " + clazz);
 			}
 		}
+                public boolean isWordInclusion(Entity entity, Mention newMention){
+                    String clusterString = new String();
+                      for (Mention m : entity.mentions)
+                        clusterString += " " + m.gloss().toLowerCase();
+
+                    for (String word : newMention.gloss().toLowerCase().split(" ")){
+                      if (!isArticle(word) && !clusterString.contains(word))
+                        return false;
+                    }
+                    return true;
+                  }
+
+                         /**
+                   * Returns TRUE if the word is an article, otherwise FALSE
+                   */
+                  public boolean isArticle(String word) {
+                    if (articles.contains(word.toLowerCase())) {
+                      return true;
+                    } else {
+                      return false;
+                    }
+                  }
+
+                  /**
+                   * Returns TRUE if two mentions have Compatible Modifiers is satisfied, otherwise FALSE
+                   */
+                  public boolean isCompatibleModifiers(Mention mention, Mention newMention){
+                    String newText = newMention.gloss();
+                    List<String> newPosTags = newMention.sentence.posTags;
+                    int index = newMention.beginIndexInclusive;
+                    String posTag;
+                    for (String word : newText.split(" ")){
+                      posTag = newPosTags.get(index);
+                      if (posTag.equals("NN") || posTag.equals("JJ")|| posTag.equals("JJS") || posTag.equals("JJR")){
+                        if (!mention.gloss().contains(word))
+                          return false;
+                      index++;
+                      }
+                    }
+                    return false;
+                  }
+
+                  /**
+                  * Compute the number of the words the two string overlap with each other
+                  */
+                public double countOverlap (String a, String b) {
+                  int nWord  = 0;
+                  int nCommon = 0;
+                  String longStr;
+                  String shortStr;
+                  if (a.length() > b.length()){
+                    longStr = a;
+                    shortStr =b;
+                  }
+                  else{
+                    longStr = b;
+                    shortStr =a;
+                  }
+
+                  for (String word : longStr.split(" ")){
+                    if (!isArticle(word)){
+                      nWord++;
+                      if (shortStr.toLowerCase().contains(word.toLowerCase()))
+                        nCommon++;
+                      }
+                  }
+                   return nCommon;
+                }
+                  /**
+                  * Return true if a string contains a capitalized word
+                  */
+
+                  public boolean containUppercase(String a ) {
+
+                     for (String word : a.split(" ")){
+
+                      String firstLetter = String.valueOf(word.charAt(0));
+                      if (firstLetter.equals(firstLetter.toUpperCase()))
+                        return true;
+                    }
+                    return false;
+
+                  }
+                   /**
+                    * Returns TRUE if two mentions have gender match, otherwise FALSE
+                    */
+                   public boolean isGenderMatch(Mention m1, Mention m2){
+                     Pair<Boolean,Boolean> gender = Util.haveGenderAndAreSameGender(m1, m2);
+                     return(gender.getFirst() && gender.getSecond())|| !gender.getFirst();
+                   }
+
+                   /**
+                    * Returns TRUE if two mentions have strict gender match, otherwise FALSE
+                    */
+                   public boolean isStrictGenderMatch(Mention m1, Mention m2){
+                     Pair<Boolean,Boolean> gender = Util.haveGenderAndAreSameGender(m1, m2);
+                     return gender.getFirst() && gender.getSecond();
+                   }
+
+                   /**
+                    * Returns TRUE if two mentions have number match, otherwise FALSE
+                    */
+                   public boolean isNumberMatch(Mention m1, Mention m2){
+                     Pair<Boolean,Boolean> number = Util.haveNumberAndAreSameNumber(m1, m2);
+                     return (number.getFirst() && number.getSecond()) || !number.getFirst();
+                   }
+
+                   /**
+                    * Returns TRUE if two mentions have strict number match, otherwise FALSE
+                    */
+                   public boolean isStrictNumberMatch(Mention m1, Mention m2){
+                     Pair<Boolean,Boolean> number = Util.haveNumberAndAreSameNumber(m1, m2);
+                     return number.getFirst() && number.getSecond();
+                   }
+                   /**
+                    * Returns TRUE if two mentions have person match, otherwise FALSE
+                    */
+                   public boolean isPersonMatch(Mention m1, Mention m2){
+                     boolean flag = true;
+                     if (Pronoun.isSomePronoun(m1.gloss()) && Pronoun.isSomePronoun(m2.gloss())) {
+                       if (!(m1.headToken().isQuoted() || m2.headToken().isQuoted())) {
+                         Pronoun p1 = Pronoun.valueOrNull(m1.gloss());
+                         Pronoun p2 = Pronoun.valueOrNull(m2.gloss());
+                         if (p1 != null && p2 != null) {
+                           flag = (p1.speaker == p2.speaker);
+                         }
+                       }
+                     }
+                     return flag;
+                   }
+            /**
+                    * Returns TRUE if two mentions have strict person match, otherwise FALSE
+                    */
+                   public boolean isStrictPersonMatch(Mention m1, Mention m2){
+                     boolean flag = false;
+                     if (Pronoun.isSomePronoun(m1.gloss()) && Pronoun.isSomePronoun(m2.gloss())) {
+                       if (!(m1.headToken().isQuoted() || m2.headToken().isQuoted())) {
+                         Pronoun p1 = Pronoun.valueOrNull(m1.gloss());
+                         Pronoun p2 = Pronoun.valueOrNull(m2.gloss());
+                         if (p1 != null && p2 != null) {
+                           flag = (p1.speaker == p2.speaker);
+                         }
+                       }
+                     }
+                     return flag;
+                   }
 
 		@SuppressWarnings({"unchecked"})
 		@Override
@@ -220,10 +443,10 @@ public class ClassifierBased implements CoreferenceSystem {
 			for(int j=i-1; j>=0; j--){
 
 				ClusteredMention cand = rtn.get(j);
-				
+
 				boolean coreferent = classifier.classOf(new RVFDatum<Boolean, Feature>(
 						       extractor.extractFeatures(Pair.make(onPrix, cand))));
-				
+
 				if(coreferent){
 					coreferentWith = j;
 					break;
