@@ -43,21 +43,21 @@ public class ClassifierBased implements CoreferenceSystem {
 			Feature.HW_Noun.class,
 			Feature.HW_ProperNoun.class,
 			Feature.HW_PluralNoun.class,
-      Feature.HW_WordInclusion.class,
-      Feature.HW_CompatibleModifiers.class,
-      Feature.HW_Unigram.class,
-      Feature.HW_Bigram.class,
-      Feature.HW_OnePronoun.class,
-      Feature.HW_BothPronoun.class,
-      Feature.HW_BothContainUppercase.class,
-      Feature.HW_NumberMatch.class,
-      Feature.HW_StrictNumberMatch.class,
-      Feature.HW_GenderMatch.class,
-      Feature.HW_StrictGenderMatch.class,
-      Feature.HW_PersonMatch.class,
-      Feature.HW_StrictPersonMatch.class,
-      Feature.HW_SentenceDist.class,
-      Feature.HW_MentionDist.class,
+                        Feature.HW_WordInclusion.class,
+                        Feature.HW_CompatibleModifiers.class,
+                        Feature.HW_Unigram.class,
+                        Feature.HW_Bigram.class,
+                        Feature.HW_OnePronoun.class,
+                        Feature.HW_BothPronoun.class,
+                        Feature.HW_BothContainUppercase.class,
+                        Feature.HW_NumberMatch.class,
+                        Feature.HW_StrictNumberMatch.class,
+                        Feature.HW_GenderMatch.class,
+                        Feature.HW_StrictGenderMatch.class,
+                        Feature.HW_PersonMatch.class,
+                        Feature.HW_StrictPersonMatch.class,
+                        Feature.HW_SentenceDist.class,
+                        Feature.HW_MentionDist.class,
 
 			//skeleton for how to create a pair feature
 			//Pair.make(Feature.IsFeature1.class, Feature.IsFeature2.class),
@@ -73,7 +73,7 @@ public class ClassifierBased implements CoreferenceSystem {
 
 	public FeatureExtractor<Pair<Mention,ClusteredMention>,Feature,Boolean> extractor = new FeatureExtractor<Pair<Mention, ClusteredMention>, Feature, Boolean>() {
 		private <E> Feature feature(Class<E> clazz, Pair<Mention,ClusteredMention> input, Option<Double> count){
-
+			
 			//--Variables
 			Mention onPrix = input.getFirst(); //the first mention (referred to as m_i in the handout)
 			Mention candidate = input.getSecond().mention; //the second mention (referred to as m_j in the handout)
@@ -121,63 +121,63 @@ public class ClassifierBased implements CoreferenceSystem {
             onPrix.headToken().isPluralNoun() == candidate.headToken().isPluralNoun());
 			}
                         else if(clazz.equals(Feature.HW_WordInclusion.class)) {
-
+				
                                 return new Feature.HW_WordInclusion(isWordInclusion(candidateCluster,onPrix));
 			}
                        else if(clazz.equals(Feature.HW_CompatibleModifiers.class)) {
-
+				
                                 return new Feature.HW_CompatibleModifiers(isCompatibleModifiers( candidate,onPrix));
 			}
                        else if(clazz.equals(Feature.HW_Unigram.class)) {
-
-                                return new Feature.HW_Unigram(countOverlap( candidate.gloss(),onPrix.gloss())== 1);
+				
+                                return new Feature.HW_Unigram(countOverlap( candidate.gloss(),onPrix.gloss())== 1);  
                        }
                       else if(clazz.equals(Feature.HW_Bigram.class)) {
-
+				
                                 return new Feature.HW_Bigram(countOverlap( candidate.gloss(),onPrix.gloss())== 2);
 			}
                       else if(clazz.equals(Feature.HW_OnePronoun.class)) {
-
+				
                                 return new Feature.HW_OnePronoun(Pronoun.isSomePronoun(candidate.gloss())||Pronoun.isSomePronoun(onPrix.gloss()));
 			}
                      else if(clazz.equals(Feature.HW_BothPronoun.class)) {
-
+				
                                 return new Feature.HW_BothPronoun(Pronoun.isSomePronoun(candidate.gloss())&&Pronoun.isSomePronoun(onPrix.gloss()));
 			}
                     else if(clazz.equals(Feature.HW_BothContainUppercase.class)) {
-
+				
                                 return new Feature.HW_BothContainUppercase(containUppercase(candidate.gloss())&&containUppercase(onPrix.gloss()));
-			}
+			} 
                     else if(clazz.equals(Feature.HW_NumberMatch.class)) {
-
+				
                                 return new Feature.HW_NumberMatch(isNumberMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_StrictNumberMatch.class)) {
-
+				
                                 return new Feature.HW_StrictNumberMatch(isStrictNumberMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_GenderMatch.class)) {
-
+				
                                 return new Feature.HW_GenderMatch(isGenderMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_StrictGenderMatch.class)) {
-
+				
                                 return new Feature.HW_StrictGenderMatch(isStrictGenderMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_PersonMatch.class)) {
-
+				
                                 return new Feature.HW_PersonMatch(isPersonMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_StrictPersonMatch.class)) {
-
+				
                                 return new Feature.HW_StrictPersonMatch(isStrictPersonMatch(candidate ,onPrix));
 			}
                     else if(clazz.equals(Feature.HW_SentenceDist.class)) {
-
+				
                                 return new Feature.HW_SentenceDist(onPrix.doc.indexOfSentence(onPrix.sentence) - candidate.doc.indexOfSentence(candidate.sentence));
 			}
                     else if(clazz.equals(Feature.HW_MentionDist.class)) {
-
+				
                                 return new Feature.HW_MentionDist(onPrix.doc.indexOfMention(onPrix) - candidate.doc.indexOfMention(candidate));
 			}
 			else {
@@ -205,7 +205,7 @@ public class ClassifierBased implements CoreferenceSystem {
                     } else {
                       return false;
                     }
-                  }
+                  } 
 
                   /**
                    * Returns TRUE if two mentions have Compatible Modifiers is satisfied, otherwise FALSE
@@ -225,7 +225,7 @@ public class ClassifierBased implements CoreferenceSystem {
                     }
                     return false;
                   }
-
+                  
                   /**
                   * Compute the number of the words the two string overlap with each other
                   */
@@ -248,19 +248,19 @@ public class ClassifierBased implements CoreferenceSystem {
                       nWord++;
                       if (shortStr.toLowerCase().contains(word.toLowerCase()))
                         nCommon++;
-                      }
+                      }    
                   }
                    return nCommon;
                 }
                   /**
                   * Return true if a string contains a capitalized word
                   */
-
+                
                   public boolean containUppercase(String a ) {
 
                      for (String word : a.split(" ")){
 
-                      String firstLetter = String.valueOf(word.charAt(0));
+                      String firstLetter = String.valueOf(word.charAt(0)); 
                       if (firstLetter.equals(firstLetter.toUpperCase()))
                         return true;
                     }
@@ -274,7 +274,7 @@ public class ClassifierBased implements CoreferenceSystem {
                      Pair<Boolean,Boolean> gender = Util.haveGenderAndAreSameGender(m1, m2);
                      return(gender.getFirst() && gender.getSecond())|| !gender.getFirst();
                    }
-
+                   
                    /**
                     * Returns TRUE if two mentions have strict gender match, otherwise FALSE
                     */
@@ -330,7 +330,7 @@ public class ClassifierBased implements CoreferenceSystem {
                      }
                      return flag;
                    }
-
+  
 		@SuppressWarnings({"unchecked"})
 		@Override
 		protected void fillFeatures(Pair<Mention, ClusteredMention> input, Counter<Feature> inFeatures, Boolean output, Counter<Feature> outFeatures) {
@@ -443,10 +443,10 @@ public class ClassifierBased implements CoreferenceSystem {
 			for(int j=i-1; j>=0; j--){
 
 				ClusteredMention cand = rtn.get(j);
-
+				
 				boolean coreferent = classifier.classOf(new RVFDatum<Boolean, Feature>(
 						       extractor.extractFeatures(Pair.make(onPrix, cand))));
-
+				
 				if(coreferent){
 					coreferentWith = j;
 					break;
