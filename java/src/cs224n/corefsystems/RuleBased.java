@@ -44,19 +44,19 @@ public class RuleBased implements CoreferenceSystem {
     // Phase 1: Exact Matches
     output = exactMatch(null, doc);
     
-    // Phase 3: Strict Head Matches
+    // Phase 2: Strict Head Matches
     output = strictHeadMatch(output, doc);
             
-    // Phase 4: Strict Head Matches - Var1
+    // Phase 3: Strict Head Matches - Var1
     output = strictHeadMatchVar1(output, doc);
     
-    // Phase 5: Strict Head Matches - Var2
+    // Phase 4: Strict Head Matches - Var2
     output = strictHeadMatchVar2(output, doc);
     
-    // Phase 6: Relaxed Head Matches
+    // Phase 5: Relaxed Head Matches
     output = relaxedHeadMatch(output, doc);
     
-    // Phase 7: Pronoun Matches
+    // Phase 6: Pronoun Matches
     output = pronounMatch(output, doc);
     
     return output;
