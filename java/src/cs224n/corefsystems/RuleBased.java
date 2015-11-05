@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import cs224n.coref.*;
+import cs224n.ling.Tree;
 import cs224n.util.CounterMap;
 import cs224n.util.Pair;
 import java.util.HashMap;
@@ -59,7 +60,75 @@ public class RuleBased implements CoreferenceSystem {
     // Phase 6: Pronoun Matches
     output = pronounMatch(output, doc);
     
+    // Phase 7: Hobbs Algorithm
+    //output = hobbsMatch(output, doc);
+    
     return output;
+  }
+  
+  /**
+   * Run the Hobbs Algorithm
+   */
+  public List<ClusteredMention> hobbsMatch(List<ClusteredMention> currentClusters, Document doc) {
+    /* DEBUG */ int pronoun = 0, nohobbsmatch = 0, nomention = 0;
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    
+    for (ClusteredMention cm : currentClusters) {
+      // Skip non-pronouns and already clustered mentions
+      if (!Pronoun.isSomePronoun(cm.mention.gloss())) {// || cm.entity != null) {
+        output.add(cm);
+        continue;
+      }
+      /* DEBUG */ pronoun++;
+      // Proceed with Hobbs Algorithm otherwise
+      int sentenceIndex = doc.indexOfSentence(cm.mention.sentence);
+      Pair<Integer,Integer> hobbs = HobbsAlgorithm.parse(doc, sentenceIndex, cm.mention);
+      if (hobbs.getFirst() == -1 || hobbs.getSecond() == -1) {
+        output.add(cm);
+        /* DEBUG */ nohobbsmatch++;
+        continue;
+      }
+      
+      // Convert the Hobbs output into a mention
+      int hobbsUID = hobbs.getFirst();
+      Sentence hobbsSentence = doc.sentences.get(hobbs.getSecond());
+      Tree<String> hobbsParse = HobbsAlgorithm.returnSubtree(hobbsSentence.parse, hobbsUID);
+      List<String> hobbsPhrase = hobbsParse.getYield();
+      ClusteredMention hoobsMention = hobbsToMention(currentClusters, hobbsSentence, hobbsPhrase);
+      
+      if (hoobsMention != null) {
+        output.add(cm.mention.changeCoreference(hoobsMention.entity));
+      } else {
+        /* DEBUG */ nomention++;
+        output.add(cm);
+      }
+    }
+    System.err.println("PRONOUNS: " + pronoun + "  NOHOBBSMATCH: " + nohobbsmatch + "  NOMENTION: " + nomention);
+    return output;
+  }
+  /**
+   * Convert Hobbs output to a mention
+   */
+  public static ClusteredMention hobbsToMention(List<ClusteredMention> clusters, Sentence s, List<String> words) {
+    for (ClusteredMention cm : clusters) {
+      Mention m = cm.mention;
+      if (m.sentence == s && stringListMatch(m.text(), words))
+        return cm;
+    }
+    return null;
+  }
+  /**
+   * Determine if the two lists of strings match
+   */
+  public static boolean stringListMatch(List<String> a, List<String> b) {
+    if (a.size() != b.size())
+      return false;
+    for (int i=0; i < a.size(); i++) {
+      if (!a.get(i).equals(b.get(i))) {
+        return false;
+      }
+    }
+    return true;
   }
   
   
