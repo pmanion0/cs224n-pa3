@@ -101,6 +101,31 @@ public interface Feature {
     public ExactMatch(boolean exactMatch){ super(exactMatch); }
   }
   
+  public static class HW_Exact extends Indicator {
+    public HW_Exact(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_Gender extends Indicator {
+    public HW_Gender(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_PoS extends Indicator {
+    public HW_PoS(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_NER extends Indicator {
+    public HW_NER(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_Lemma extends Indicator {
+    public HW_Lemma(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_Noun extends Indicator {
+    public HW_Noun(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_ProperNoun extends Indicator {
+    public HW_ProperNoun(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_PluralNoun extends Indicator {
+    public HW_PluralNoun(boolean exactMatch){ super(exactMatch); }
+  }
+  
   /*
    * TODO: Add values to the indicators here.
    */

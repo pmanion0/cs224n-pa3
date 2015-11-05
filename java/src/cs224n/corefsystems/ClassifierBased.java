@@ -34,6 +34,13 @@ public class ClassifierBased implements CoreferenceSystem {
 			 */
 
 			Feature.ExactMatch.class,
+			Feature.HW_Exact.class,
+			Feature.HW_PoS.class,
+			Feature.HW_NER.class,
+			Feature.HW_Lemma.class,
+			Feature.HW_Noun.class,
+			Feature.HW_ProperNoun.class,
+			Feature.HW_PluralNoun.class
 
 			//skeleton for how to create a pair feature
 			//Pair.make(Feature.IsFeature1.class, Feature.IsFeature2.class),
@@ -60,10 +67,41 @@ public class ClassifierBased implements CoreferenceSystem {
 			if(clazz.equals(Feature.ExactMatch.class)){
 				//(exact string match)
 				return new Feature.ExactMatch(onPrix.gloss().equals(candidate.gloss()));
-//			} else if(clazz.equals(Feature.NewFeature.class) {
-				/*
-				 * TODO: Add features to return for specific classes. Implement calculating values of features here.
-				 */
+			}
+			else if(clazz.equals(Feature.HW_Exact.class)) {
+			  // Head-word exact matching
+	       return new Feature.HW_Exact(
+	           onPrix.headWord().equals(candidate.headWord()));
+			}
+			else if(clazz.equals(Feature.HW_PoS.class)) {
+			  // Head-word part of speech agreement
+	      return new Feature.HW_PoS(
+            onPrix.headToken().posTag().equals(candidate.headToken().posTag()));
+			}
+			else if(clazz.equals(Feature.HW_NER.class)) {
+			  // Head-word NER agreement
+	      return new Feature.HW_NER(
+            onPrix.headToken().nerTag().equals(candidate.headToken().nerTag()));
+			}
+			else if(clazz.equals(Feature.HW_Lemma.class)) {
+			  // Head-word lemma agreement
+			  return new Feature.HW_Lemma(
+            onPrix.headToken().lemma().equals(candidate.headToken().lemma()));
+			}
+			else if(clazz.equals(Feature.HW_Noun.class)) {
+			  // Head-word isNoun agreement
+			  return new Feature.HW_Noun(
+            onPrix.headToken().isNoun() == candidate.headToken().isNoun());
+			}
+			else if(clazz.equals(Feature.HW_ProperNoun.class)) {
+			  // Head-word isProperNoun agreement
+			  return new Feature.HW_ProperNoun(
+            onPrix.headToken().isProperNoun() == candidate.headToken().isProperNoun());
+			}
+			else if(clazz.equals(Feature.HW_PluralNoun.class)) {
+			  // Head-word isPluralNoun agreement
+			  return new Feature.HW_PluralNoun(
+            onPrix.headToken().isPluralNoun() == candidate.headToken().isPluralNoun());
 			}
 			else {
 				throw new IllegalArgumentException("Unregistered feature: " + clazz);
