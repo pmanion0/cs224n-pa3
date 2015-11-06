@@ -126,8 +126,57 @@ public interface Feature {
     public HW_PluralNoun(boolean exactMatch){ super(exactMatch); }
   }
   
+  
   /*
    * TODO: Add values to the indicators here.
    */
+  public static class HW_WordInclusion extends Indicator {
+    public HW_WordInclusion(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_CompatibleModifiers extends Indicator {
+    public HW_CompatibleModifiers(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_Unigram extends Indicator {
+    public HW_Unigram(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_Bigram extends Indicator {
+    public HW_Bigram(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_OnePronoun extends Indicator {
+    public HW_OnePronoun(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_BothPronoun extends Indicator {
+    public HW_BothPronoun(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_BothContainUppercase extends Indicator {
+    public HW_BothContainUppercase(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_NumberMatch extends Indicator {
+    public HW_NumberMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_StrictNumberMatch extends Indicator {
+    public HW_StrictNumberMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_GenderMatch extends Indicator {
+    public HW_GenderMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_StrictGenderMatch extends Indicator {
+    public HW_StrictGenderMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_PersonMatch extends Indicator {
+    public HW_PersonMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_StrictPersonMatch extends Indicator {
+    public HW_StrictPersonMatch(boolean exactMatch){ super(exactMatch); }
+  }
+  public static class HW_OverlapCount extends IntIndicator {
+    public HW_OverlapCount(int exactMatch){ super(exactMatch); }
+  }
+  public static class HW_MentionDist extends IntIndicator {
+    public HW_MentionDist(int exactMatch){ super(exactMatch); }
+  }
+  public static class HW_SentenceDist extends IntIndicator {
+    public HW_SentenceDist(int exactMatch){ super(exactMatch); }
+  }
 
 }
