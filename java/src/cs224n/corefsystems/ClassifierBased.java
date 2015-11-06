@@ -2,6 +2,7 @@ package cs224n.corefsystems;
 
 import cs224n.coref.*;
 import static cs224n.corefsystems.RuleBased.ALL_ARTICLES;
+import cs224n.corefsystems.HobbsAlgorithm;
 import cs224n.util.Pair;
 import edu.stanford.nlp.classify.LinearClassifier;
 import edu.stanford.nlp.classify.LinearClassifierFactory;
@@ -43,21 +44,34 @@ public class ClassifierBased implements CoreferenceSystem {
 			Feature.HW_Noun.class,
 			Feature.HW_ProperNoun.class,
 			Feature.HW_PluralNoun.class,
+                        
+                      
+                      /*
+                        
+                        
+                        
                         Feature.HW_WordInclusion.class,
                         Feature.HW_CompatibleModifiers.class,
-                        Feature.HW_Unigram.class,
-                        Feature.HW_Bigram.class,
-                        Feature.HW_OnePronoun.class,
-                        Feature.HW_BothPronoun.class,
-                        Feature.HW_BothContainUppercase.class,
+                        
+                        Feature.HW_SentenceDist.class,
+                        Feature.HW_MentionDist.class,
+                        
                         Feature.HW_NumberMatch.class,
                         Feature.HW_StrictNumberMatch.class,
                         Feature.HW_GenderMatch.class,
                         Feature.HW_StrictGenderMatch.class,
                         Feature.HW_PersonMatch.class,
                         Feature.HW_StrictPersonMatch.class,
-                        Feature.HW_SentenceDist.class,
-                        Feature.HW_MentionDist.class,
+                        
+                        Feature.HW_Unigram.class,
+                        Feature.HW_Bigram.class,
+                        Feature.HW_OverlapCount.class,
+                        Feature.HW_OnePronoun.class,
+                        Feature.HW_BothPronoun.class,
+                        Feature.HW_BothContainUppercase.class,
+                        
+                        
+                      */
 
 			//skeleton for how to create a pair feature
 			//Pair.make(Feature.IsFeature1.class, Feature.IsFeature2.class),
@@ -136,6 +150,11 @@ public class ClassifierBased implements CoreferenceSystem {
 				
                                 return new Feature.HW_Bigram(countOverlap( candidate.gloss(),onPrix.gloss())== 2);
 			}
+                      else if(clazz.equals(Feature.HW_OverlapCount.class)) {
+				
+                                return new Feature.HW_OverlapCount(countOverlap(candidate.gloss(),onPrix.gloss()));
+			}
+                      
                       else if(clazz.equals(Feature.HW_OnePronoun.class)) {
 				
                                 return new Feature.HW_OnePronoun(Pronoun.isSomePronoun(candidate.gloss())||Pronoun.isSomePronoun(onPrix.gloss()));
@@ -229,7 +248,7 @@ public class ClassifierBased implements CoreferenceSystem {
                   /**
                   * Compute the number of the words the two string overlap with each other
                   */
-                public double countOverlap (String a, String b) {
+                public int countOverlap (String a, String b) {
                   int nWord  = 0;
                   int nCommon = 0;
                   String longStr;
@@ -252,6 +271,40 @@ public class ClassifierBased implements CoreferenceSystem {
                   }
                    return nCommon;
                 }
+                
+                /**
+                * compute the # of the words the two string overlap with each other
+                */
+                 public double countOverlapCount (String a, String b) {
+                   int nWord  = 0;
+                   int nCommon = 0;
+                   String longStr;
+                   String shortStr;
+                   if (a.length() > b.length()){
+                     longStr = a;
+                     shortStr = b;
+                   }
+                   else{
+                     longStr = b;
+                     shortStr = a;
+                   }
+
+                   for (String word : longStr.split(" ")){
+                     if (word!="the"){
+                       nWord++;
+                           if (shortStr.toLowerCase().contains(word.toLowerCase())){
+                             nCommon++;
+                             String firstLetter = String.valueOf(word.charAt(0)); 
+                             /*if (firstLetter.equals(firstLetter.toUpperCase())){
+                               nWord++;
+                               nCommon++;
+                             }*/
+                           }
+                       }    
+                   }
+                   double commonRatio =nCommon* 1.0/nWord;
+                   return commonRatio;
+                 }
                   /**
                   * Return true if a string contains a capitalized word
                   */
