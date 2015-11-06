@@ -15,7 +15,15 @@ import cs224n.util.Pair;
 
 public class HobbsAlgorithm {
   
-  public static Pair<Integer,Integer> parse(Document d, int sentenceNum, Mention m) {
+  /**
+   * 
+   * @param d
+   * @param sentenceNum - sentence # in the document
+   * @param m - mention containing the pronoun to match
+   * @return <AntecedentUID, AntecedentSentenceNum>
+   */
+  public static Pair<Integer,Integer> parse(Document d, Mention m) {
+    int sentenceNum = d.indexOfSentence(m.sentence);
     Sentence s = d.sentences.get(sentenceNum);
     int minUID, antecedent;
     
