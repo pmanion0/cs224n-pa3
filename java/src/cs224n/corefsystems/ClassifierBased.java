@@ -1,7 +1,7 @@
 package cs224n.corefsystems;
 
 import cs224n.coref.*;
-import static cs224n.corefsystems.RuleBased.ALL_ARTICLES;
+//import cs224n.corefsystems.RuleBased.ALL_ARTICLES;
 import cs224n.corefsystems.HobbsAlgorithm;
 import cs224n.util.Pair;
 import edu.stanford.nlp.classify.LinearClassifier;
@@ -22,6 +22,7 @@ import static edu.stanford.nlp.util.logging.Redwood.Util.*;
  * @author Gabor Angeli (angeli at cs.stanford)
  */
 public class ClassifierBased implements CoreferenceSystem {
+  public static final String[] ALL_ARTICLES = new String[] {"a","an","the"};
           public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
 
 	private static <E> Set<E> mkSet(E[] array){

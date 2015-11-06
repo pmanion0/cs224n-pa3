@@ -20,6 +20,16 @@ public class RuleBased implements CoreferenceSystem {
   public CounterMap<String,String> synonyms = new CounterMap<String,String>();
   
   // Create word sets that we will treat differently and/or exclude from certain rules
+  public static final String[] ALL_PRONOUNS = new String[] {"i","you","he","she","it","me","us","we","them",
+      "him","her","his","hers","my","yours","ours","our"};
+  public static final String[] ALL_ARTICLES = new String[] {"a","an","the"};
+  public static final String[] ALL_PARSE_NOUNS = new String[] {"NN","NNS","NNP","NNPS"};
+  
+  public static final Set<String> pronouns = new HashSet<String>(Arrays.asList(ALL_PRONOUNS));
+  public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
+  public static final Set<String> parseNouns = new HashSet<String>(Arrays.asList(ALL_PARSE_NOUNS));
+  
+  // Create word sets that we will treat differently and/or exclude from certain rules
   public static final String[] LINKING_VERBS = new String[] {"am","is","are","was","were","being"};
   public static final Set<String> linkingVerbList = new HashSet<String>(Arrays.asList(LINKING_VERBS));
   public static final String[] STOP_WORDS = new String[] {"a","an","and","are","as","at","be","by","for",
@@ -37,22 +47,20 @@ public class RuleBased implements CoreferenceSystem {
     
     output = allSingleton(doc);
     
-    exactMatch(output);
-    acronymMatch(output);
-    noStopWordMatch(output);
-    dropAfterHeadMatch(output);
+    exactMatch(output); /*****/
+    acronymMatch(output); /*****/
+    noStopWordMatch(output); /*****/
+    dropAfterHeadMatch(output); /*****/
     //appositiveMatch(output);
-    headExactMatch(output);
-    headLowcaseMatch(output);
+    headExactMatch(output); /*****/
+    headLowcaseMatch(output); /*****/
     //headLemmaMatch(output);
     //partialOverlapMatch(output);
     //headLooseMatch(output);
-    //appositiveMatch(output);
     //predicateNominativeMatch(output);
     //hobbsMatch(output, doc);
-    pronounMatch(output);
-    cutLongestMatch(output);
-    //partialOverlapMatch(output);
+    pronounMatch(output); /*****/
+    cutLongestMatch(output); /*****/
     
     int cntr=0;
     for (ClusteredMention cm : output) {
@@ -112,7 +120,7 @@ public class RuleBased implements CoreferenceSystem {
   public void headExactMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
-      for (int j=i; j < currentClusters.size(); j++) {
+      for (int j=i+1; j < currentClusters.size(); j++) {
         ClusteredMention cm2 = currentClusters.get(j);
         
         if (!eitherIsPronoun(cm1, cm2) && cm1.mention.headWord().equals(cm2.mention.headWord())) {
@@ -129,7 +137,7 @@ public class RuleBased implements CoreferenceSystem {
   public void headLowcaseMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
-      for (int j=i; j < currentClusters.size(); j++) {
+      for (int j=i+1; j < currentClusters.size(); j++) {
         ClusteredMention cm2 = currentClusters.get(j);
         
         if (!eitherIsPronoun(cm1, cm2)
@@ -147,7 +155,7 @@ public class RuleBased implements CoreferenceSystem {
   public void headLemmaMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
-      for (int j=i; j < currentClusters.size(); j++) {
+      for (int j=i+1; j < currentClusters.size(); j++) {
         ClusteredMention cm2 = currentClusters.get(j);
         
         if (!eitherIsPronoun(cm1, cm2)
@@ -214,7 +222,6 @@ public class RuleBased implements CoreferenceSystem {
             && cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag()) // Things like "Patrick, ABC News, signing out"
             && cm2.mention.sentence.words.get(cm2.mention.endIndexExclusive).equals(",")
             && cm1.mention.sentence.words.get(cm1.mention.endIndexExclusive).equals(",")) {
-              System.err.println("APPOSITIVE MATCH");
               mergeClusters(cm1.entity, cm2.entity);
         }
       }
@@ -253,8 +260,9 @@ public class RuleBased implements CoreferenceSystem {
         ClusteredMention cm2 = currentClusters.get(j);
         
         if (!eitherIsPronoun(cm1, cm2)
-            && matchWithoutStopWords(cm1.mention.text(), cm2.mention.text()))
+            && matchWithoutStopWords(cm1.mention.text(), cm2.mention.text())) {
               mergeClusters(cm1.entity, cm2.entity);
+        }
       }
     }
   }
@@ -287,11 +295,9 @@ public class RuleBased implements CoreferenceSystem {
           s1 += cm1.mention.sentence.words.get(k);
         for (int k=cm2.mention.beginIndexInclusive; k <= cm2.mention.headWordIndex; k++)
           s2 += cm2.mention.sentence.words.get(k);
-        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2))
-            //&& cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag())
-            //&& (cm1.mention.headToken().isNoun() || cm1.mention.headToken().isProperNoun())
-            //&& (cm2.mention.headToken().isNoun() || cm2.mention.headToken().isProperNoun()))
+        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2)) {
           mergeClusters(cm1.entity, cm2.entity);
+        }
       }
     }
   }
@@ -375,8 +381,9 @@ public class RuleBased implements CoreferenceSystem {
         else
           s1.substring(0, s2.length());
         
-        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2))
+        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2)) {
           mergeClusters(cm1.entity, cm2.entity);
+        }
       }
     }
   }

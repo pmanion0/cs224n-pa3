@@ -41,33 +41,72 @@ public class BetterBaseline implements CoreferenceSystem {
   public List<ClusteredMention> runCoreference(Document doc) {
     List<ClusteredMention> output;
     
-    // Phase 1: Exact Matches
-    output = exactMatch(null, doc);
-    
-    // Phase 2: Partial Matches
-    output = partialMatch(output, doc);
+    output = allSingleton(doc);
+    exactMatch(output);
+    //headMatch(output);
     
     return output;
   }
   
-  
   /**
-   * Cluster all mentions that are exact string matches
+   * Convert all mentions into singleton ClusteredMentions
+   * @param doc - Document set with all Mentions
+   * @return list of all ClusteredMentions
    */
-  public List<ClusteredMention> exactMatch(List<ClusteredMention> currentClusters, Document doc) {
-    Map<String,Entity> clusters = new HashMap<String,Entity>();
+  public List<ClusteredMention> allSingleton(Document doc) {
     List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
     for (Mention m : doc.getMentions()) {
-      String mentionString = m.gloss().toLowerCase();
-      if (clusters.containsKey(mentionString)) {
-        output.add(m.markCoreferent(clusters.get(mentionString)));
-      } else {
-        ClusteredMention newCluster = m.markSingleton();
-        output.add(newCluster);
-      }
+      ClusteredMention newCluster = m.markSingleton();
+      output.add(newCluster);
     }
     return output;
+  }
+  
+  /**
+   * Merge clusters of any mentions with exact matches (excluding pronouns)
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void exactMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (cm1.mention.gloss().equals(cm2.mention.gloss())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merge all mentions from e1 to e2
+   */
+  public static void mergeClusters(Entity e1, Entity e2) {
+    List<Mention> m1List = new ArrayList<Mention>();
+    for (Mention m1 : e1.mentions) {
+      m1List.add(m1);
+    }
+    for (Mention m1 : m1List) {
+      m1.changeCoreference(e2);
+    }
+  }
+  
+  /**
+   * Merge clusters if the head word matches exactly
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void headMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (cm1.mention.headWord().equals(cm2.mention.headWord())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
   }
   
   /**
