@@ -13,99 +13,449 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Iterator;
 
 public class RuleBased implements CoreferenceSystem {
   
   public CounterMap<String,String> synonyms = new CounterMap<String,String>();
   
   // Create word sets that we will treat differently and/or exclude from certain rules
-  public static final String[] ALL_PRONOUNS = new String[] {"i","you","he","she","it","me","us","we","them",
-      "him","her","his","hers","my","yours","ours","our"};
-  public static final String[] ALL_ARTICLES = new String[] {"a","an","the"};
-  public static final String[] ALL_PARSE_NOUNS = new String[] {"NN","NNS","NNP","NNPS"};
+  public static final String[] LINKING_VERBS = new String[] {"am","is","are","was","were","being"};
+  public static final Set<String> linkingVerbList = new HashSet<String>(Arrays.asList(LINKING_VERBS));
+  public static final String[] STOP_WORDS = new String[] {"a","an","and","are","as","at","be","by","for",
+      "from","has","in","is","it","its","of","on","that","the","to","was","were","will","with"};
+  public static Set<String> stopWordList = new HashSet<String>(Arrays.asList(STOP_WORDS));
   
-  public static final Set<String> pronouns = new HashSet<String>(Arrays.asList(ALL_PRONOUNS));
-  public static final Set<String> articles = new HashSet<String>(Arrays.asList(ALL_ARTICLES));
-  public static final Set<String> parseNouns = new HashSet<String>(Arrays.asList(ALL_PARSE_NOUNS));
-
 
   @Override
   public void train(Collection<Pair<Document, List<Entity>>> trainingData) {
-    /*for(Pair<Document, List<Entity>> pair : trainingData){
-      List<Entity> clusters = pair.getSecond();
-      
-      trainSynonyms(clusters);
-    }*/
   }
 
   @Override
   public List<ClusteredMention> runCoreference(Document doc) {
     List<ClusteredMention> output;
     
-    // Phase 1: Exact Matches
-    output = exactMatch(null, doc);
+    output = allSingleton(doc);
     
-    // Phase 2: Strict Head Matches
-    output = strictHeadMatch(output, doc);
-            
-    // Phase 3: Strict Head Matches - Var1
-    output = strictHeadMatchVar1(output, doc);
+    exactMatch(output);
+    acronymMatch(output);
+    noStopWordMatch(output);
+    dropAfterHeadMatch(output);
+    //appositiveMatch(output);
+    headExactMatch(output);
+    headLowcaseMatch(output);
+    //headLemmaMatch(output);
+    //partialOverlapMatch(output);
+    //headLooseMatch(output);
+    //appositiveMatch(output);
+    //predicateNominativeMatch(output);
+    //hobbsMatch(output, doc);
+    pronounMatch(output);
     
-    // Phase 4: Strict Head Matches - Var2
-    output = strictHeadMatchVar2(output, doc);
-    
-    // Phase 5: Relaxed Head Matches
-    output = relaxedHeadMatch(output, doc);
-    
-    // Phase 6: Pronoun Matches
-    output = pronounMatch(output, doc);
-    
-    // Phase 7: Hobbs Algorithm
-    //output = hobbsMatch(output, doc);
-    
+    return output;
+  }
+
+  
+  /**
+   * Return TRUE if either mention is a pronoun
+   */
+  public boolean eitherIsPronoun(ClusteredMention cm1, ClusteredMention cm2) {
+    return Pronoun.isSomePronoun(cm1.mention.gloss()) || Pronoun.isSomePronoun(cm2.mention.gloss());
+  }
+  
+  /**
+   * Convert all mentions into singleton ClusteredMentions
+   * @param doc - Document set with all Mentions
+   * @return list of all ClusteredMentions
+   */
+  public List<ClusteredMention> allSingleton(Document doc) {
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    for (Mention m : doc.getMentions()) {
+      ClusteredMention newCluster = m.markSingleton();
+      output.add(newCluster);
+    }
     return output;
   }
   
   /**
-   * Run the Hobbs Algorithm
+   * Merge clusters of any mentions with exact matches (excluding pronouns)
+   * @param currentClusters - list of all ClusteredMentions
    */
-  public List<ClusteredMention> hobbsMatch(List<ClusteredMention> currentClusters, Document doc) {
-    /* DEBUG */ int pronoun = 0, nohobbsmatch = 0, nomention = 0;
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention cm : currentClusters) {
-      // Skip non-pronouns and already clustered mentions
-      if (!Pronoun.isSomePronoun(cm.mention.gloss())) {// || cm.entity != null) {
-        output.add(cm);
-        continue;
-      }
-      /* DEBUG */ pronoun++;
-      // Proceed with Hobbs Algorithm otherwise
-      int sentenceIndex = doc.indexOfSentence(cm.mention.sentence);
-      Pair<Integer,Integer> hobbs = HobbsAlgorithm.parse(doc, sentenceIndex, cm.mention);
-      if (hobbs.getFirst() == -1 || hobbs.getSecond() == -1) {
-        output.add(cm);
-        /* DEBUG */ nohobbsmatch++;
-        continue;
-      }
-      
-      // Convert the Hobbs output into a mention
-      int hobbsUID = hobbs.getFirst();
-      Sentence hobbsSentence = doc.sentences.get(hobbs.getSecond());
-      Tree<String> hobbsParse = HobbsAlgorithm.returnSubtree(hobbsSentence.parse, hobbsUID);
-      List<String> hobbsPhrase = hobbsParse.getYield();
-      ClusteredMention hoobsMention = hobbsToMention(currentClusters, hobbsSentence, hobbsPhrase);
-      
-      if (hoobsMention != null) {
-        output.add(cm.mention.changeCoreference(hoobsMention.entity));
-      } else {
-        /* DEBUG */ nomention++;
-        output.add(cm);
+  public void exactMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2) && cm1.mention.gloss().equals(cm2.mention.gloss())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
       }
     }
-    System.err.println("PRONOUNS: " + pronoun + "  NOHOBBSMATCH: " + nohobbsmatch + "  NOMENTION: " + nomention);
-    return output;
   }
+  
+  /**
+   * Merge clusters if the head word matches exactly
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void headExactMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2) && cm1.mention.headWord().equals(cm2.mention.headWord())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merge clusters if the head word matches exactly
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void headLowcaseMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2)
+            && cm1.mention.headWord().toLowerCase().equals(cm2.mention.headWord().toLowerCase())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merge clusters if the head lemma matches
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void headLemmaMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2)
+            && cm1.mention.headToken().lemma().equals(cm2.mention.headToken().lemma())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merge clusters if the head words have an NER match
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void headLooseMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2) && cm1.mention.gloss().contains(cm1.mention.headWord())
+            && cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag())) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+
+  /**
+   * Merge clusters if one is an acronym of the other
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void acronymMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=0; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        String acronym = acronym(cm1.mention.gloss());
+        String base = cm2.mention.gloss();
+        if (!eitherIsPronoun(cm1, cm2) && base.indexOf(acronym)>-1 && acronym.length()>1) {
+          mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merges clusters if any two mentions are separate by just a comma
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void appositiveMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        // Merge if they occur in the same sentence and are separate by a comma
+        if (cm1.mention.sentence.gloss().equals(cm2.mention.sentence.gloss())
+            && (cm1.mention.endIndexExclusive+1) == cm2.mention.beginIndexInclusive
+            && cm2.mention.sentence.length() > cm2.mention.endIndexExclusive
+            && !cm1.mention.headToken().nerTag().equals("DATE") // Often dates are used in this way
+            && !cm1.mention.headToken().nerTag().equals("GPE") // Often have place names used this way too
+            && cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag()) // Things like "Patrick, ABC News, signing out"
+            && cm2.mention.sentence.words.get(cm2.mention.endIndexExclusive).equals(",")
+            && cm1.mention.sentence.words.get(cm1.mention.endIndexExclusive).equals(",")) {
+              System.err.println("APPOSITIVE MATCH");
+              mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merges clusters if any two mentions are separate by just a comma
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void predicateNominativeMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        // Merge if they occur in the same sentence and are separate by a comma
+        if (cm1.mention.sentence.gloss().equals(cm2.mention.sentence.gloss())
+            && (cm1.mention.endIndexExclusive+1) == cm2.mention.beginIndexInclusive
+            && linkingVerbList.contains(cm1.mention.sentence.words.get(cm1.mention.endIndexExclusive).toLowerCase())
+            && cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag())) {
+              mergeClusters(cm1.entity, cm2.entity);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Merges clusters if all the words (minus stop words) are the same
+   * @param currentClusters - list of all ClusteredMentions
+   */
+  public void noStopWordMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        if (!eitherIsPronoun(cm1, cm2)
+            && matchWithoutStopWords(cm1.mention.text(), cm2.mention.text()))
+              mergeClusters(cm1.entity, cm2.entity);
+      }
+    }
+  }
+  /**
+   * Return TRUE if the two word lists match after excluding stop words
+   */
+  public boolean matchWithoutStopWords(List<String> a, List<String> b) {
+    // Make sure all non-stop words in A also occur in B
+    for (String word : a) {
+      if (!stopWordList.contains(word.toLowerCase()) && !b.contains(word))
+        return false;
+    }
+    // Make sure all non-stop words in B also occur in A
+    for (String word : b) {
+      if (!stopWordList.contains(word.toLowerCase()) && !a.contains(word))
+        return false;
+    }
+    return true;
+  }
+  
+  
+  public void dropAfterHeadMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        String s1 = "", s2 = "";
+        for (int k=cm1.mention.beginIndexInclusive; k <= cm1.mention.headWordIndex; k++)
+          s1 += cm1.mention.sentence.words.get(k);
+        for (int k=cm2.mention.beginIndexInclusive; k <= cm2.mention.headWordIndex; k++)
+          s2 += cm2.mention.sentence.words.get(k);
+        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2))
+            //&& cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag())
+            //&& (cm1.mention.headToken().isNoun() || cm1.mention.headToken().isProperNoun())
+            //&& (cm2.mention.headToken().isNoun() || cm2.mention.headToken().isProperNoun()))
+          mergeClusters(cm1.entity, cm2.entity);
+      }
+    }
+  }
+
+  /**
+   * Match mentions that overlap a certain fraction of their words
+   */
+  public void partialOverlapMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        double length = 0, overlap = 0;
+        List<String> s_long, s_short;
+        if (cm1.mention.length() > cm2.mention.length()) {
+          length = cm1.mention.length();
+          s_long = Arrays.asList(cm1.mention.gloss().split(" "));
+          s_short = Arrays.asList(cm2.mention.gloss().split(" "));
+        } else {
+          length = cm2.mention.length();
+          s_long = Arrays.asList(cm2.mention.gloss().split(" "));
+          s_short = Arrays.asList(cm1.mention.gloss().split(" "));
+        }
+        
+        for (String s : s_short) {
+          if (s_long.contains(s))
+            overlap++;
+        }
+        if (overlap/length > 0.66 && length > 3)
+          mergeClusters(cm1.entity, cm2.entity);
+      }
+    }
+  }
+  
+  public void pronounMatch(List<ClusteredMention> currentClusters) {
+    // Separate pronouns from non-pronouns
+    List<ClusteredMention> proList = new ArrayList<ClusteredMention>();
+    List<ClusteredMention> nonList = new ArrayList<ClusteredMention>();
+    for (ClusteredMention cm : currentClusters) {
+      if (Pronoun.isSomePronoun(cm.mention.headWord())) {
+        proList.add(cm);
+      } else {
+        nonList.add(cm);
+      }
+    }
+    
+    // Assign every pronoun to the best match
+    for (ClusteredMention pro : proList) {
+      Entity bestMatch = null;
+      int bestDistance = Integer.MAX_VALUE;
+      
+      for (ClusteredMention non : nonList) {
+        /*Gender pronoun, head;
+        if (Pronoun.isSomePronoun(cm1.mention.headWord())) {
+          pronoun = Pronoun.getPronoun(cm1.mention.headWord()).gender;
+          head = Name.mostLikelyGender(cm2.mention.headWord());
+        } else {
+          pronoun = Pronoun.getPronoun(cm2.mention.headWord()).gender;
+          head = Name.mostLikelyGender(cm1.mention.headWord());
+        }*/
+        
+        int distance = pro.mention.doc.indexOfMention(pro.mention) - non.mention.doc.indexOfMention(non.mention);
+        if (distance < bestDistance && distance > 0
+            && isNerMatch(pro.mention, non.mention)
+            && isGenderMatch(pro.mention, non.mention)
+            //&& isNumberMatch(pro.mention, non.mention)
+            //&& isPersonMatch(pro.mention, non.mention)
+            ) {
+          bestDistance = distance;
+          bestMatch = non.entity;
+        /*int distance = pro.mention.doc.indexOfMention(pro.mention) - non.mention.doc.indexOfMention(non.mention);
+        if (isPronounMatch(pro.mention, non.mention) && distance < bestDistance && distance > 0) {
+          bestDistance = distance;
+          bestMatch = non.entity;*/
+        }
+      }
+      if (bestMatch != null)
+        mergeClusters(pro.entity, bestMatch);
+    }
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+
+  /**
+   * Convert a string into its acronym
+   */
+  public String acronym(String in) {
+    String out = "";
+    String[] split = in.split(" ");
+    for (String word : split) {
+      char firstChar = word.charAt(0);
+      if (Character.isLetter(firstChar) && Character.isUpperCase(firstChar))
+        out += firstChar;
+    }
+    return out;
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  public void hobbsMatch(List<ClusteredMention> currentClusters, Document doc) {
+    for (ClusteredMention cm : currentClusters) {
+      // Skip non-pronouns or mentions that have already been clustered
+      if (!Pronoun.isSomePronoun(cm.mention.gloss()) || cm.entity.size() > 1)
+        continue;
+      /* DEBUG System.err.println("--- PRONOUN FOUND ---"); */
+      Entity e = getHobbsParse(cm.mention, doc, currentClusters);
+      if (e != null)
+        cm.mention.changeCoreference(e);
+    }
+  }
+  
+  
+  /**
+   * Get the matching entity for a Hobbs Parse
+   * @param m - Mention with the pronoun to match
+   * @param d - Document set for parsing
+   * @param clusters - Cluster list to use in finding the matching entity
+   * @return Entity of the matching mention
+   */
+  public Entity getHobbsParse(Mention m, Document d, List<ClusteredMention> clusters) {
+    Entity matchingEntity = null;
+    
+    Pair<Integer,Integer> match = HobbsAlgorithm.parse(d, m);
+    int matchUID = match.getFirst();
+    int matchSentenceNum = match.getSecond();
+    
+    if (matchUID > -1 && matchSentenceNum > -1) {
+      Sentence matchSentence = d.sentences.get(matchSentenceNum);
+      Tree<String> matchParse = HobbsAlgorithm.returnSubtree(matchSentence.parse, matchUID);
+      
+      for (ClusteredMention c : clusters) {
+        if (matchSentence.equals(c.mention.sentence) && matchParse.equals(c.mention.parse)) {
+          matchingEntity = c.entity;
+        }
+      }
+    }
+    
+    return matchingEntity;
+  }
+  
+  
+  /**
+   * Merge all mentions from e1 to e2
+   */
+  public static void mergeClusters(Entity e1, Entity e2) {
+    List<Mention> m1List = new ArrayList<Mention>();
+    for (Mention m1 : e1.mentions) {
+      m1List.add(m1);
+    }
+    for (Mention m1 : m1List) {
+      m1.changeCoreference(e2);
+    }
+  }
+  
   /**
    * Convert Hobbs output to a mention
    */
@@ -117,6 +467,8 @@ public class RuleBased implements CoreferenceSystem {
     }
     return null;
   }
+  
+  
   /**
    * Determine if the two lists of strings match
    */
@@ -131,223 +483,7 @@ public class RuleBased implements CoreferenceSystem {
     return true;
   }
   
-  
-  /**
-   * Cluster all mentions that are exact string matches
-   */
-  public List<ClusteredMention> exactMatch(List<ClusteredMention> currentClusters, Document doc) {
-    Map<String,Entity> clusters = new HashMap<String,Entity>();
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (Mention m : doc.getMentions()) {
-      String mentionString = m.gloss().toLowerCase();
-      if (clusters.containsKey(mentionString)) {
-        output.add(m.markCoreferent(clusters.get(mentionString)));
-      } else {
-        ClusteredMention newCluster = m.markSingleton();
-        output.add(newCluster);
-        clusters.put(mentionString,newCluster.entity);
-      }
-    }
-    return output;
-  }
-  
-  
-  
- /**
-   * phase 3. Combine clusters with strict head matching
-   */
-  public List<ClusteredMention> strictHeadMatch(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention curr : currentClusters) {
-      Mention mention = curr.mention;
-      Entity bestMatch = getStrictHeadMatch(currentClusters, mention);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
 
-
-  /**
-   * phase 3. - check if a mention satisfies strict head matching with an current cluster
-   */
-   
-  public Entity getStrictHeadMatch(List<ClusteredMention> clusters, Mention newMention) {
-    Entity bestEntity = null;
-     
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        Mention mention = cm.mention;
-        Entity  entity = cm.entity;
-        if (isClusterHeadMatch(entity, newMention) && isWordInclusion(entity, newMention) && isCompatibleModifiers(mention, newMention))
-        bestEntity = entity;    
-      }
-    }
-    return bestEntity;
-  } 
-  
-  /**
-   * phase 4. Combine clusters with strict head matching - variant I 
-   */
-  public List<ClusteredMention> strictHeadMatchVar1(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention curr : currentClusters) {
-      Mention mention = curr.mention;
-      Entity bestMatch = getStrictHeadMatchVar1(currentClusters, mention);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
-
-
-  /**
-   * phase 4. - check if a mention satisfies strict head matching - variant I with an current cluster
-   */
-   
-  public Entity getStrictHeadMatchVar1(List<ClusteredMention> clusters, Mention newMention) {
-    Entity bestEntity = null;
-     
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        Mention mention = cm.mention;
-        Entity  entity = cm.entity;
-        if (isClusterHeadMatch(entity, newMention) && isWordInclusion(entity, newMention))
-        bestEntity = entity;    
-      }
-    }
-    return bestEntity;
-  } 
-  
-  /**
-   * phase 5. Combine clusters with strict head matching -- Var2
-   */
-  public List<ClusteredMention> strictHeadMatchVar2(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    for (ClusteredMention curr : currentClusters) {
-      Mention mention = curr.mention;
-      Entity bestMatch = getStrictHeadMatchVar2(currentClusters, mention);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
-
-
-  /**
-   * phase 5. - check if a mention satisfies strict head matching variant 2 with an current cluster
-   */
-   
-  public Entity getStrictHeadMatchVar2(List<ClusteredMention> clusters, Mention newMention) {
-    Entity bestEntity = null;
-     
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        Mention mention = cm.mention;
-        Entity  entity = cm.entity;
-        if (isClusterHeadMatch(entity, newMention)  && isCompatibleModifiers(mention, newMention))
-        bestEntity = entity;    
-      }
-    }
-    return bestEntity;
-  } 
-  
-/*/**
-   * phase 6. Combine clusters with relax head match
-   */
-  public List<ClusteredMention> relaxedHeadMatch(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention curr : currentClusters) {
-      Mention mention = curr.mention;
-      Entity bestMatch = getRelaxedHeadMatch(currentClusters, mention);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
-
-  /**
-   * phase 6. - check if a mention satisfies strict head matching variant 2 with an current cluster
-   */
-   
-  public Entity getRelaxedHeadMatch(List<ClusteredMention> clusters, Mention newMention) {
-    Entity bestEntity = null;
-     
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        Mention mention = cm.mention;
-        Entity  entity = cm.entity;
-        if (isRelaxedClusterHeadMatch(entity, newMention)  && isNerMatch(mention, newMention) && isWordInclusion(entity, newMention))
-        bestEntity = entity;    
-      }
-    }
-    return bestEntity;
-  } 
-  
-  /**
-   * phase 7. Combine clusters with Pronoun match
-   */
-  public List<ClusteredMention> pronounMatch(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention curr : currentClusters) {
-      Mention mention = curr.mention;
-      Entity bestMatch = getPronounMatch(currentClusters, mention);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
-
-  
-
-  /**
-   * phase 6. - check if a mention satisfies strict head matching variant 2 with an current cluster
-   */
-   
-  public Entity getPronounMatch(List<ClusteredMention> clusters, Mention newMention) {
-    Entity bestEntity = null;
-     
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        Mention mention = cm.mention;
-        Entity  entity = cm.entity;
-        if (isPronounMatch(mention, newMention))
-        bestEntity = entity;    
-      }
-    }
-    return bestEntity;
-  } 
-  
-  /**
-   * Returns TRUE if a newMention satisfy Cluster Head Match with an entity, otherwise FALSE
-   */
-  public boolean isClusterHeadMatch(Entity entity, Mention newMention){
-    for (Mention m : entity.mentions){
-      if (m.headWord().equals(newMention.headWord()))
-              return true;
-    }
-    return false;
-  }
   
   
   /**
@@ -359,7 +495,7 @@ public class RuleBased implements CoreferenceSystem {
         clusterString += " " + m.gloss().toLowerCase();
       
     for (String word : newMention.gloss().toLowerCase().split(" ")){
-      if (!isArticle(word) && !clusterString.contains(word))
+      if (!stopWordList.contains(word) && !clusterString.contains(word))
         return false;
     }
     return true;
@@ -443,109 +579,14 @@ public class RuleBased implements CoreferenceSystem {
   boolean isPronounMatch(Mention m1, Mention m2) {
      
     boolean nerMatch = m1.headToken().nerTag().equals(m2.headToken().nerTag());
-    boolean lemmasMatch = m1.headToken().lemma().equals(m2.headToken().lemma());
+    boolean lemmasMatch = true; // m1.headToken().lemma().equals(m2.headToken().lemma());
 
     return isGenderMatch(m1,m2) && isNumberMatch(m1,m2) && isPersonMatch(m1,m2) && nerMatch && lemmasMatch;
   }
-   /**
-   * Combine clusters with some percent overlap in 
-   */
-  public List<ClusteredMention> partialMatch(List<ClusteredMention> currentClusters, Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    
-    for (ClusteredMention curr : currentClusters) {
-      String text = curr.mention.gloss();
-      Entity bestMatch = getBestMatch(currentClusters, text);
-      
-      if (bestMatch != null) {
-        curr.mention.changeCoreference(bestMatch);
-      }
-      output.add(curr);
-    }
-    return output;
-  }
-  
-  
-  /**
-   * Use the overlap percent to decide if a String Set contains a specific string
-   */
-  private static final double MATCH_THRESHOLD = 0.66;
-  
-  public Entity getBestMatch(List<ClusteredMention> clusters, String newText) {
-    Entity bestEntity = null;
-    double bestOverlap = 0.0;
-    
-    if (clusters != null) {
-      for (ClusteredMention cm : clusters) {
-        String clusterText = cm.mention.gloss();
-        double overlap = countOverlapPercent(clusterText, newText);
-        if (overlap > MATCH_THRESHOLD && overlap > bestOverlap) {
-          bestOverlap = overlap;
-          bestEntity = cm.entity;
-        }
-      }
-    }
-    return bestEntity;
-  }
-  
-  
-  /**
-   * Compute the percent of the words the two string overlap with each other
-   */
-  public double countOverlapPercent (String a, String b) {
-    int nWord  = 0;
-    int nCommon = 0;
-    String longStr;
-    String shortStr;
-    if (a.length() > b.length()){
-      longStr = a;
-      shortStr =b;
-    }
-    else{
-      longStr = b;
-      shortStr =a;
-    }
 
-    for (String word : longStr.split(" ")){
-      if (!isArticle(word)){
-        nWord++;
-        if (shortStr.toLowerCase().contains(word.toLowerCase()))
-          nCommon++;
-        }    
-    }
-    double commonRatio =nCommon* 1.0/nWord;
-    return commonRatio;
-  }
   
   
-  /**
-   * Updates CounterMap of co-occurences in the mention words
-   */
-  public void trainSynonyms(List<Entity> clusters) {
-    for (Entity e : clusters) {
-      // Put all mention words into a List
-      List<String> mentionWords = new ArrayList<String>();
-      
-      for (Mention mention : e.mentions) {
-        for (String word : mention.gloss().split(" ")) {
-          if (!isPronoun(word) && !isArticle(word)) {
-            mentionWords.add(word);
-          }
-        }
-      }
-      
-      // Store count of all co-occurences 
-      for (int i=0; i < mentionWords.size(); i++) {
-        String iWord = mentionWords.get(i);
-        for (int j=0; j < mentionWords.size(); j++) {
-          if (i != j) {
-            String jWord = mentionWords.get(j);
-            synonyms.incrementCount(iWord, jWord, 1);
-          }
-        }
-      }
-    }
-  }
+  
   
   
   /** 
@@ -560,41 +601,6 @@ public class RuleBased implements CoreferenceSystem {
     return flag;
   }
   
-  
-  /**
-   * Returns TRUE if the word is a pronoun, otherwise FALSE
-   */
-  public boolean parseIsNoun(String tag) {
-    if (parseNouns.contains(tag.toLowerCase())) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-  
-  
-  /**
-   * Returns TRUE if the word is a pronoun, otherwise FALSE
-   */
-  public boolean isPronoun(String word) {
-    if (pronouns.contains(word.toLowerCase())) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-  
-  
-  /**
-   * Returns TRUE if the word is an article, otherwise FALSE
-   */
-  public boolean isArticle(String word) {
-    if (articles.contains(word.toLowerCase())) {
-      return true;
-    } else {
-      return false;
-    }
-  }
   
   
   /**
