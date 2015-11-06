@@ -51,6 +51,17 @@ public class RuleBased implements CoreferenceSystem {
     //predicateNominativeMatch(output);
     //hobbsMatch(output, doc);
     pronounMatch(output);
+    cutLongestMatch(output);
+    //partialOverlapMatch(output);
+    
+    int cntr=0;
+    for (ClusteredMention cm : output) {
+      if (cm.entity.size() == 1) {
+        //System.err.println(cm.mention);
+        cntr++;
+      }
+    }
+    //System.err.println("COUNTER: " + cntr);
     
     return output;
   }
@@ -297,11 +308,11 @@ public class RuleBased implements CoreferenceSystem {
         double length = 0, overlap = 0;
         List<String> s_long, s_short;
         if (cm1.mention.length() > cm2.mention.length()) {
-          length = cm1.mention.length();
+          length = cm2.mention.length();
           s_long = Arrays.asList(cm1.mention.gloss().split(" "));
           s_short = Arrays.asList(cm2.mention.gloss().split(" "));
         } else {
-          length = cm2.mention.length();
+          length = cm1.mention.length();
           s_long = Arrays.asList(cm2.mention.gloss().split(" "));
           s_short = Arrays.asList(cm1.mention.gloss().split(" "));
         }
@@ -310,7 +321,7 @@ public class RuleBased implements CoreferenceSystem {
           if (s_long.contains(s))
             overlap++;
         }
-        if (overlap/length > 0.66 && length > 3)
+        if (overlap/length > 0.66 && length > 1)
           mergeClusters(cm1.entity, cm2.entity);
       }
     }
@@ -334,28 +345,15 @@ public class RuleBased implements CoreferenceSystem {
       int bestDistance = Integer.MAX_VALUE;
       
       for (ClusteredMention non : nonList) {
-        /*Gender pronoun, head;
-        if (Pronoun.isSomePronoun(cm1.mention.headWord())) {
-          pronoun = Pronoun.getPronoun(cm1.mention.headWord()).gender;
-          head = Name.mostLikelyGender(cm2.mention.headWord());
-        } else {
-          pronoun = Pronoun.getPronoun(cm2.mention.headWord()).gender;
-          head = Name.mostLikelyGender(cm1.mention.headWord());
-        }*/
-        
         int distance = pro.mention.doc.indexOfMention(pro.mention) - non.mention.doc.indexOfMention(non.mention);
         if (distance < bestDistance && distance > 0
             && isNerMatch(pro.mention, non.mention)
             && isGenderMatch(pro.mention, non.mention)
-            //&& isNumberMatch(pro.mention, non.mention)
+            && isNumberMatch(pro.mention, non.mention)
             //&& isPersonMatch(pro.mention, non.mention)
             ) {
           bestDistance = distance;
           bestMatch = non.entity;
-        /*int distance = pro.mention.doc.indexOfMention(pro.mention) - non.mention.doc.indexOfMention(non.mention);
-        if (isPronounMatch(pro.mention, non.mention) && distance < bestDistance && distance > 0) {
-          bestDistance = distance;
-          bestMatch = non.entity;*/
         }
       }
       if (bestMatch != null)
@@ -363,7 +361,25 @@ public class RuleBased implements CoreferenceSystem {
     }
   }
   
-  
+  public void cutLongestMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        String s1 = cm1.mention.gloss();
+        String s2 = cm2.mention.gloss();
+        
+        if (s1.length() < s2.length())
+          s2.substring(0, s1.length());
+        else
+          s1.substring(0, s2.length());
+        
+        if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2))
+          mergeClusters(cm1.entity, cm2.entity);
+      }
+    }
+  }
   
   
   
