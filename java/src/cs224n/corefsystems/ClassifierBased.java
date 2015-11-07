@@ -518,7 +518,7 @@ public class ClassifierBased implements CoreferenceSystem {
 		//log("" + singletons + " singletons");
 		//--Return
 		endTrack("Testing " + doc.id);
-		RuleBased.pronounMatch(rtn); /*****/ rtn = RuleBased.updateCMList(rtn);
+		//RuleBased.pronounMatch(rtn); /*****/ rtn = RuleBased.updateCMList(rtn);
 		return rtn;
 	}
 
