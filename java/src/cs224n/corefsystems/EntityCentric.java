@@ -36,6 +36,8 @@ public class EntityCentric implements CoreferenceSystem {
   public static Set<String> stopWordList = new HashSet<String>(Arrays.asList(STOP_WORDS));
   
   public Classifier model;
+  Instances dataset = null;
+
 
   @Override
   public void train(Collection<Pair<Document, List<Entity>>> trainingData) {
@@ -45,20 +47,20 @@ public class EntityCentric implements CoreferenceSystem {
   
     public Instances extract_train_features(Collection<Pair<Document, List<Entity>>> trainingData) {
 
-      Instances dataset = null;
       /* Build attributes list */
       Attribute Attribute1 = new Attribute("firstNumeric");
+      Attribute Attribute2 = new Attribute("secondNumberic");
       
       FastVector fvClassVal = new FastVector(2);
       fvClassVal.addElement("yes");
       fvClassVal.addElement("no");
       Attribute ClassAttribute = new Attribute("theClass", fvClassVal);
 
-      FastVector attributes = new FastVector(2);
-      attributes.addElement(Attribute1);    
+      FastVector attributes = new FastVector(3);
+      attributes.addElement(Attribute1);   
+      attributes.addElement(Attribute2);
       attributes.addElement(ClassAttribute);
           
-
     dataset = new Instances("train_dataset", attributes, 0);
 		
     for(Pair<Document, List<Entity>> pair : trainingData){
@@ -67,16 +69,18 @@ public class EntityCentric implements CoreferenceSystem {
          
        //--Iterate Over Coreferent Mention Pairs
        int distance;
+       int lemmaMatch;
        for(Entity e : clusters){
          for(Pair<Mention, Mention> mentionPair : e.orderedMentionPairs()){
            Mention m1 = mentionPair.getFirst();
            Mention m2 = mentionPair.getSecond();
-           distance = m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2);
-           
+           distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+           lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
            //add data 
-           Instance row = new Instance(2);
+           Instance row = new Instance(3);
            row.setValue((Attribute)attributes.elementAt(0), distance);      
-           row.setValue((Attribute)attributes.elementAt(1), "yes");    
+           row.setValue((Attribute)attributes.elementAt(1), lemmaMatch);    
+           row.setValue((Attribute)attributes.elementAt(2), "yes");    
            dataset.add(row);
          
          }
@@ -87,13 +91,15 @@ public class EntityCentric implements CoreferenceSystem {
           for (Entity e2: clusters){
             if (!e2.equals(e)){
               for (Mention m2: e2.mentions){
-                distance = m1.beginIndexInclusive - m2.beginIndexInclusive;
+                distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+                lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
                 //add data 
-                Instance row = new Instance(2);
+                Instance row = new Instance(3);
                 row.setValue((Attribute)attributes.elementAt(0), distance);      
-                row.setValue((Attribute)attributes.elementAt(1), "no");   
+                row.setValue((Attribute)attributes.elementAt(1), lemmaMatch);    
+                row.setValue((Attribute)attributes.elementAt(2), "no");    
                 dataset.add(row);
-              }
+               }
             }
            }
          }
@@ -105,7 +111,7 @@ public class EntityCentric implements CoreferenceSystem {
      }
 
    public void modeling(Instances dataset){ 
-         Classifier model = (Classifier)new Logistic();   
+          model = (Classifier)new Logistic();   
          try {
           model.buildClassifier(dataset);
            // Test the model
@@ -124,9 +130,11 @@ public class EntityCentric implements CoreferenceSystem {
              }
              System.out.println();
             }
-          
-            double dist[] = model.distributionForInstance(dataset.instance(0));         
+             for (int i = 0; i< 10; i++){
+            double dist[] = model.distributionForInstance(dataset.instance(i));
+            System.out.println("instance_i = " + dataset.instance(i));
             System.out.println("prediction  = " + dist[0]);
+             }
           }
         catch(Exception e) {
      // If it fails, write the error message to screen
@@ -160,24 +168,16 @@ public class EntityCentric implements CoreferenceSystem {
   }
 
   public double scoring(Mention m1, Mention m2){
-          //create attributes;
-          Attribute Attribute1 = new Attribute("firstNumeric");
-          FastVector fvClassVal = new FastVector(2);
-          fvClassVal.addElement("yes");
-          fvClassVal.addElement("no");
-          Attribute ClassAttribute = new Attribute("theClass", fvClassVal);
-
-          FastVector attributes = new FastVector(2);
-          attributes.addElement(Attribute1);    
-          attributes.addElement(ClassAttribute);
-          
-          int  distance = m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2);
-          Instance inst = new Instance(2); 
- 
-         // inst.setMissing(inst.numAttributes()-1);        
-          inst.setValue((Attribute)attributes.elementAt(0), distance);      
-          inst.setValue((Attribute)attributes.elementAt(1), "positive");  
-          try {
+         try{
+           
+          Instance inst = new Instance(3);
+          int  distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+           int lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
+          inst.setValue(dataset.attribute(0),distance);
+          inst.setValue(dataset.attribute(1),lemmaMatch);
+          inst.setValue(dataset.attribute(2), "yes");
+          inst.setMissing(inst.numAttributes()-1);  
+            //System.out.println("distance = " + distance);
             double prob[] = model.distributionForInstance(inst);
             return prob[0];
           }
@@ -223,7 +223,8 @@ public class EntityCentric implements CoreferenceSystem {
         }
         
         //test scoring
-        System.out.println(scoring(cm1.mention,cm2.mention));
+        double pred = scoring(cm1.mention,cm2.mention);
+        //System.out.println(pred);
        }
     }
   }
