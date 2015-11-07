@@ -518,6 +518,7 @@ public class ClassifierBased implements CoreferenceSystem {
 		//log("" + singletons + " singletons");
 		//--Return
 		endTrack("Testing " + doc.id);
+		RuleBased.pronounMatch(rtn); /*****/ rtn = RuleBased.updateCMList(rtn);
 		return rtn;
 	}
 
@@ -529,4 +530,79 @@ public class ClassifierBased implements CoreferenceSystem {
 		public void set(T obj){ this.obj = obj; }
 		public boolean exists(){ return obj != null; }
 	}
+	
+	
+  public static void pronounMatch(List<ClusteredMention> currentClusters) {
+    // Separate pronouns from non-pronouns
+    List<ClusteredMention> proList = new ArrayList<ClusteredMention>();
+    List<ClusteredMention> nonList = new ArrayList<ClusteredMention>();
+    for (ClusteredMention cm : currentClusters) {
+      if (Pronoun.isSomePronoun(cm.mention.headWord())) {
+        proList.add(cm);
+      } else {
+        nonList.add(cm);
+      }
+    }
+    
+    // Assign every pronoun to the best match
+    for (ClusteredMention pro : proList) {
+      Entity bestMatch = null;
+      int bestDistance = Integer.MAX_VALUE;
+      
+      for (ClusteredMention non : nonList) {
+        int distance = pro.mention.doc.indexOfMention(pro.mention) - non.mention.doc.indexOfMention(non.mention);
+        if (distance < bestDistance && distance > 0
+            && isNerMatch(pro.mention, non.mention)
+            && isGenderMatch(pro.mention, non.mention)
+            && isNumberMatch(pro.mention, non.mention)
+            //&& isPersonMatch(pro.mention, non.mention)
+            ) {
+          bestDistance = distance;
+          bestMatch = non.entity;
+        }
+      }
+      if (bestMatch != null)
+        mergeClusters(pro.entity, bestMatch);
+    }
+  }
+  /**
+   * Returns TRUE if two mentions are labeled as the named entities and the types match, otherwise FALSE
+   */
+  public static boolean isNerMatch(Mention mention, Mention newMention){
+    String nerTag = mention.sentence.nerTags.get(mention.beginIndexInclusive);
+    String newNerTag = newMention.sentence.nerTags.get(newMention.beginIndexInclusive);
+    if (nerTag!= "0" && nerTag.equals(newNerTag))
+      return true;
+    else
+      return false;
+  }
+  
+   /**
+   * Returns TRUE if two mentions have gender match, otherwise FALSE
+   */
+  public static boolean isGenderMatch(Mention m1, Mention m2){
+    Pair<Boolean,Boolean> gender = Util.haveGenderAndAreSameGender(m1, m2);
+    return(gender.getFirst() && gender.getSecond())|| !gender.getFirst();
+  }
+  
+  /**
+   * Returns TRUE if two mentions have number match, otherwise FALSE
+   */
+  public static boolean isNumberMatch(Mention m1, Mention m2){
+    Pair<Boolean,Boolean> number = Util.haveNumberAndAreSameNumber(m1, m2);
+    return (number.getFirst() && number.getSecond()) || !number.getFirst();
+  }
+  /**
+   * Merge all mentions from e1 to e2
+   */
+  public static void mergeClusters(Entity e1, Entity e2) {
+    List<Mention> m1List = new ArrayList<Mention>();
+    for (Mention m1 : e1.mentions) {
+      m1List.add(m1);
+    }
+    for (Mention m1 : m1List) {
+      m1.changeCoreference(e2);
+    }
+  }
+	
 }

@@ -47,20 +47,21 @@ public class RuleBased implements CoreferenceSystem {
     
     output = allSingleton(doc);
     
-    exactMatch(output); /*****/
-    acronymMatch(output); /*****/
-    noStopWordMatch(output); /*****/
-    dropAfterHeadMatch(output); /*****/
+    exactMatch(output); /*****/ output = updateCMList(output);
+    acronymMatch(output); /*****/ output = updateCMList(output);
+    noStopWordMatch(output); /*****/ output = updateCMList(output);
+    dropAfterHeadMatch(output); /*****/ output = updateCMList(output);
     //appositiveMatch(output);
-    headExactMatch(output); /*****/
-    headLowcaseMatch(output); /*****/
+    headExactMatch(output); /*****/ output = updateCMList(output);
+    headLowcaseMatch(output); /*****/ output = updateCMList(output);
     //headLemmaMatch(output);
     //partialOverlapMatch(output);
     //headLooseMatch(output);
     //predicateNominativeMatch(output);
     //hobbsMatch(output, doc);
-    pronounMatch(output); /*****/
-    cutLongestMatch(output); /*****/
+    pronounMatch(output); /*****/ output = updateCMList(output);
+    //cutLongestMatch(output); output = updateCMList(output);
+    partialEntityMatch(output); /*****/
     
     int cntr=0;
     for (ClusteredMention cm : output) {
@@ -73,13 +74,22 @@ public class RuleBased implements CoreferenceSystem {
     
     return output;
   }
-
+  
+  public static List<ClusteredMention> updateCMList(List<ClusteredMention> clusters) {
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    for (ClusteredMention cm : clusters) {
+      output.add(cm.mention.getClusteredMention());
+    }
+    return output;
+  }
   
   /**
    * Return TRUE if either mention is a pronoun
    */
-  public boolean eitherIsPronoun(ClusteredMention cm1, ClusteredMention cm2) {
-    return Pronoun.isSomePronoun(cm1.mention.gloss()) || Pronoun.isSomePronoun(cm2.mention.gloss());
+  public static boolean eitherIsPronoun(ClusteredMention cm1, ClusteredMention cm2) {
+    String s1 = cm1.mention.gloss();
+    String s2 = cm2.mention.gloss();
+    return Pronoun.isSomePronoun(s1) || Pronoun.isSomePronoun(s2);
   }
   
   /**
@@ -87,7 +97,7 @@ public class RuleBased implements CoreferenceSystem {
    * @param doc - Document set with all Mentions
    * @return list of all ClusteredMentions
    */
-  public List<ClusteredMention> allSingleton(Document doc) {
+  public static List<ClusteredMention> allSingleton(Document doc) {
     List<ClusteredMention> output = new ArrayList<ClusteredMention>();
     for (Mention m : doc.getMentions()) {
       ClusteredMention newCluster = m.markSingleton();
@@ -100,11 +110,14 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters of any mentions with exact matches (excluding pronouns)
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void exactMatch(List<ClusteredMention> currentClusters) {
+  public static void exactMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
-      for (int j=i; j < currentClusters.size(); j++) {
+      for (int j=i+1; j < currentClusters.size(); j++) {
         ClusteredMention cm2 = currentClusters.get(j);
+
+        String s1 = cm1.mention.gloss();
+        String s2 = cm2.mention.gloss();
         
         if (!eitherIsPronoun(cm1, cm2) && cm1.mention.gloss().equals(cm2.mention.gloss())) {
           mergeClusters(cm1.entity, cm2.entity);
@@ -117,7 +130,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters if the head word matches exactly
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void headExactMatch(List<ClusteredMention> currentClusters) {
+  public static void headExactMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -134,7 +147,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters if the head word matches exactly
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void headLowcaseMatch(List<ClusteredMention> currentClusters) {
+  public static void headLowcaseMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -152,7 +165,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters if the head lemma matches
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void headLemmaMatch(List<ClusteredMention> currentClusters) {
+  public static void headLemmaMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -170,7 +183,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters if the head words have an NER match
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void headLooseMatch(List<ClusteredMention> currentClusters) {
+  public static void headLooseMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i; j < currentClusters.size(); j++) {
@@ -188,7 +201,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merge clusters if one is an acronym of the other
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void acronymMatch(List<ClusteredMention> currentClusters) {
+  public static void acronymMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=0; j < currentClusters.size(); j++) {
@@ -207,7 +220,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merges clusters if any two mentions are separate by just a comma
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void appositiveMatch(List<ClusteredMention> currentClusters) {
+  public static void appositiveMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -232,7 +245,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merges clusters if any two mentions are separate by just a comma
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void predicateNominativeMatch(List<ClusteredMention> currentClusters) {
+  public static void predicateNominativeMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -253,7 +266,7 @@ public class RuleBased implements CoreferenceSystem {
    * Merges clusters if all the words (minus stop words) are the same
    * @param currentClusters - list of all ClusteredMentions
    */
-  public void noStopWordMatch(List<ClusteredMention> currentClusters) {
+  public static void noStopWordMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -269,7 +282,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Return TRUE if the two word lists match after excluding stop words
    */
-  public boolean matchWithoutStopWords(List<String> a, List<String> b) {
+  public static boolean matchWithoutStopWords(List<String> a, List<String> b) {
     // Make sure all non-stop words in A also occur in B
     for (String word : a) {
       if (!stopWordList.contains(word.toLowerCase()) && !b.contains(word))
@@ -284,7 +297,7 @@ public class RuleBased implements CoreferenceSystem {
   }
   
   
-  public void dropAfterHeadMatch(List<ClusteredMention> currentClusters) {
+  public static void dropAfterHeadMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -305,7 +318,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Match mentions that overlap a certain fraction of their words
    */
-  public void partialOverlapMatch(List<ClusteredMention> currentClusters) {
+  public static void partialOverlapMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -314,26 +327,75 @@ public class RuleBased implements CoreferenceSystem {
         double length = 0, overlap = 0;
         List<String> s_long, s_short;
         if (cm1.mention.length() > cm2.mention.length()) {
-          length = cm2.mention.length();
+          length = cm1.mention.length();
           s_long = Arrays.asList(cm1.mention.gloss().split(" "));
           s_short = Arrays.asList(cm2.mention.gloss().split(" "));
         } else {
-          length = cm1.mention.length();
+          length = cm2.mention.length();
           s_long = Arrays.asList(cm2.mention.gloss().split(" "));
           s_short = Arrays.asList(cm1.mention.gloss().split(" "));
         }
         
-        for (String s : s_short) {
-          if (s_long.contains(s))
+        for (String s : s_long) {
+          if (s_short.contains(s))
             overlap++;
         }
-        if (overlap/length > 0.66 && length > 1)
+        if (overlap/length > 0.8 && length > 1 && cm1.mention.headToken().nerTag().equals(cm2.mention.headToken().nerTag())) {
           mergeClusters(cm1.entity, cm2.entity);
+        }
       }
     }
   }
   
-  public void pronounMatch(List<ClusteredMention> currentClusters) {
+  /**
+   * Merge the clusters if there is significant overlap among all words
+   * @param currentClusters
+   */
+  public static void partialEntityMatch(List<ClusteredMention> currentClusters) {
+    for (int i=0; i < currentClusters.size(); i++) {
+      ClusteredMention cm1 = currentClusters.get(i);
+      for (int j=i+1; j < currentClusters.size(); j++) {
+        ClusteredMention cm2 = currentClusters.get(j);
+        
+        //if (cm1.entity.size() == 1 || cm2.entity.size() == 1)
+        //  continue;
+        
+        List<String> set1 = new ArrayList<String>();
+        List<String> set2 = new ArrayList<String>();
+        for (Mention m : cm1.entity.mentions)
+          for (String word : m.gloss().split(" "))
+              set1.add(word);
+        for (Mention m : cm2.entity.mentions)
+          for (String word : m.gloss().split(" "))
+              set2.add(word);
+          
+        double count1 = 0, match1 = 0;
+        for (String s1 : set1) {
+          count1++;
+          if (set2.contains(s1))
+            match1++;
+        }
+        double count2 = 0, match2 = 0;
+        for (String s2 : set2) {
+          count2++;
+          if (set1.contains(s2))
+            match2++;
+        }
+        
+        if ((match1/count1 + match2/count2)/2 > 0.9) {
+          mergeClusters(cm1.entity, cm2.entity);
+          if (!cm1.entity.equals(cm2.entity) && cm1.entity.size() > 0 && cm2.entity.size() > 0) {
+          System.err.println("--------");
+          System.err.println(cm1.entity);
+          System.err.println(cm2.entity);
+          System.err.println("--------");
+          }
+        }
+      }
+    }
+  }
+  
+  public static void pronounMatch(List<ClusteredMention> currentClusters) {
     // Separate pronouns from non-pronouns
     List<ClusteredMention> proList = new ArrayList<ClusteredMention>();
     List<ClusteredMention> nonList = new ArrayList<ClusteredMention>();
@@ -367,7 +429,7 @@ public class RuleBased implements CoreferenceSystem {
     }
   }
   
-  public void cutLongestMatch(List<ClusteredMention> currentClusters) {
+  public static void cutLongestMatch(List<ClusteredMention> currentClusters) {
     for (int i=0; i < currentClusters.size(); i++) {
       ClusteredMention cm1 = currentClusters.get(i);
       for (int j=i+1; j < currentClusters.size(); j++) {
@@ -377,11 +439,15 @@ public class RuleBased implements CoreferenceSystem {
         String s2 = cm2.mention.gloss();
         
         if (s1.length() < s2.length())
-          s2.substring(0, s1.length());
+          s2 = s2.substring(0, s1.length());
         else
-          s1.substring(0, s2.length());
+          s1 = s1.substring(0, s2.length());
         
         if (!eitherIsPronoun(cm1, cm2) && !s1.equals("") && s1.equals(s2)) {
+          if (cm1.entity.size() == 1) {
+            System.err.println("--------");
+            System.err.print(cm1.mention.gloss().equals(cm2.mention.gloss()) + ": " + cm1.mention + " ~~~~ " + cm2.mention);
+          }
           mergeClusters(cm1.entity, cm2.entity);
         }
       }
@@ -401,7 +467,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Convert a string into its acronym
    */
-  public String acronym(String in) {
+  public static String acronym(String in) {
     String out = "";
     String[] split = in.split(" ");
     for (String word : split) {
@@ -424,7 +490,7 @@ public class RuleBased implements CoreferenceSystem {
   
   
   
-  public void hobbsMatch(List<ClusteredMention> currentClusters, Document doc) {
+  public static void hobbsMatch(List<ClusteredMention> currentClusters, Document doc) {
     for (ClusteredMention cm : currentClusters) {
       // Skip non-pronouns or mentions that have already been clustered
       if (!Pronoun.isSomePronoun(cm.mention.gloss()) || cm.entity.size() > 1)
@@ -444,7 +510,7 @@ public class RuleBased implements CoreferenceSystem {
    * @param clusters - Cluster list to use in finding the matching entity
    * @return Entity of the matching mention
    */
-  public Entity getHobbsParse(Mention m, Document d, List<ClusteredMention> clusters) {
+  public static Entity getHobbsParse(Mention m, Document d, List<ClusteredMention> clusters) {
     Entity matchingEntity = null;
     
     Pair<Integer,Integer> match = HobbsAlgorithm.parse(d, m);
@@ -456,7 +522,8 @@ public class RuleBased implements CoreferenceSystem {
       Tree<String> matchParse = HobbsAlgorithm.returnSubtree(matchSentence.parse, matchUID);
       
       for (ClusteredMention c : clusters) {
-        if (matchSentence.equals(c.mention.sentence) && matchParse.equals(c.mention.parse)) {
+        if (matchSentence.equals(c.mention.sentence) && matchParse.equals(c.mention.parse)
+            && isNerMatch(c.mention, m) && isGenderMatch(c.mention, m) && isNumberMatch(c.mention, m)) {
           matchingEntity = c.entity;
         }
       }
@@ -546,7 +613,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Returns TRUE if a newMention satisfy Cluster Head Match with an entity, otherwise FALSE
    */
-  public boolean isRelaxedClusterHeadMatch(Entity entity, Mention newMention){
+  public static boolean isRelaxedClusterHeadMatch(Entity entity, Mention newMention){
     for (Mention m : entity.mentions){
       if (m.gloss().toLowerCase().contains(newMention.headWord().toLowerCase()))
               return true;
@@ -557,7 +624,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Returns TRUE if two mentions are labeled as the named entities and the types match, otherwise FALSE
    */
-  public boolean isNerMatch(Mention mention, Mention newMention){
+  public static boolean isNerMatch(Mention mention, Mention newMention){
     String nerTag = mention.sentence.nerTags.get(mention.beginIndexInclusive);
     String newNerTag = newMention.sentence.nerTags.get(newMention.beginIndexInclusive);
     if (nerTag!= "0" && nerTag.equals(newNerTag))
@@ -569,7 +636,7 @@ public class RuleBased implements CoreferenceSystem {
    /**
    * Returns TRUE if two mentions have gender match, otherwise FALSE
    */
-  public boolean isGenderMatch(Mention m1, Mention m2){
+  public static boolean isGenderMatch(Mention m1, Mention m2){
     Pair<Boolean,Boolean> gender = Util.haveGenderAndAreSameGender(m1, m2);
     return(gender.getFirst() && gender.getSecond())|| !gender.getFirst();
   }
@@ -577,7 +644,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Returns TRUE if two mentions have number match, otherwise FALSE
    */
-  public boolean isNumberMatch(Mention m1, Mention m2){
+  public static boolean isNumberMatch(Mention m1, Mention m2){
     Pair<Boolean,Boolean> number = Util.haveNumberAndAreSameNumber(m1, m2);
     return (number.getFirst() && number.getSecond()) || !number.getFirst();
   }
@@ -585,7 +652,7 @@ public class RuleBased implements CoreferenceSystem {
   /**
    * Returns TRUE if two mentions have person match, otherwise FALSE
    */
-  public boolean isPersonMatch(Mention m1, Mention m2){
+  public static boolean isPersonMatch(Mention m1, Mention m2){
     boolean flag = true;
     if (Pronoun.isSomePronoun(m1.gloss()) && Pronoun.isSomePronoun(m2.gloss())) {
       if (!(m1.headToken().isQuoted() || m2.headToken().isQuoted())) {

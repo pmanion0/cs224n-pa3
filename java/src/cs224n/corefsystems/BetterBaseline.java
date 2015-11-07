@@ -42,9 +42,17 @@ public class BetterBaseline implements CoreferenceSystem {
     List<ClusteredMention> output;
     
     output = allSingleton(doc);
-    exactMatch(output);
-    //headMatch(output);
+    exactMatch(output); output = updateCMList(output);
+    headMatch(output); output = updateCMList(output);
     
+    return output;
+  }
+  
+  public static List<ClusteredMention> updateCMList(List<ClusteredMention> clusters) {
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    for (ClusteredMention cm : clusters) {
+      output.add(cm.mention.getClusteredMention());
+    }
     return output;
   }
   

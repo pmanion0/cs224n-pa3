@@ -118,6 +118,13 @@ public class Mention implements Serializable, Decodable {
     corefferentWith = cluster;
     return new ClusteredMention(this,cluster);
   }
+  
+  /**
+   * Return a ClusteredMention for this mention
+   */
+  public ClusteredMention getClusteredMention() {
+    return new ClusteredMention(this,corefferentWith);
+  }
 
   /**
    * Mark this mention as referring to an entity.
