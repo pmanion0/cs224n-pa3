@@ -41,114 +41,16 @@ public class EntityCentric implements CoreferenceSystem {
 
   @Override
   public void train(Collection<Pair<Document, List<Entity>>> trainingData) {
-      Instances dataset = extract_train_features(trainingData);
-      modeling(dataset);
+    Instances dataset = extract_train_features(trainingData);
+    modeling(dataset);
   }
   
-    public Instances extract_train_features(Collection<Pair<Document, List<Entity>>> trainingData) {
-
-      /* Build attributes list */
-      Attribute Attribute1 = new Attribute("firstNumeric");
-      Attribute Attribute2 = new Attribute("secondNumberic");
-      
-      FastVector fvClassVal = new FastVector(2);
-      fvClassVal.addElement("yes");
-      fvClassVal.addElement("no");
-      Attribute ClassAttribute = new Attribute("theClass", fvClassVal);
-
-      FastVector attributes = new FastVector(3);
-      attributes.addElement(Attribute1);   
-      attributes.addElement(Attribute2);
-      attributes.addElement(ClassAttribute);
-          
-    dataset = new Instances("train_dataset", attributes, 0);
-		
-    for(Pair<Document, List<Entity>> pair : trainingData){
-      Document doc = pair.getFirst();
-      List<Entity> clusters = pair.getSecond();
-         
-       //--Iterate Over Coreferent Mention Pairs
-       int distance;
-       int lemmaMatch;
-       for(Entity e : clusters){
-         for(Pair<Mention, Mention> mentionPair : e.orderedMentionPairs()){
-           Mention m1 = mentionPair.getFirst();
-           Mention m2 = mentionPair.getSecond();
-           distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
-           lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
-           //add data 
-           Instance row = new Instance(3);
-           row.setValue((Attribute)attributes.elementAt(0), distance);      
-           row.setValue((Attribute)attributes.elementAt(1), lemmaMatch);    
-           row.setValue((Attribute)attributes.elementAt(2), "yes");    
-           dataset.add(row);
-         
-         }
-       }
-       
-       for (Entity e : clusters){ 
-         for (Mention m1 : e.mentions)
-          for (Entity e2: clusters){
-            if (!e2.equals(e)){
-              for (Mention m2: e2.mentions){
-                distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
-                lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
-                //add data 
-                Instance row = new Instance(3);
-                row.setValue((Attribute)attributes.elementAt(0), distance);      
-                row.setValue((Attribute)attributes.elementAt(1), lemmaMatch);    
-                row.setValue((Attribute)attributes.elementAt(2), "no");    
-                dataset.add(row);
-               }
-            }
-           }
-         }
-         
-       } 
-		/* Set last attribute as target */
-                dataset.setClassIndex(dataset.numAttributes()-1);
-		return dataset;
-     }
-
-   public void modeling(Instances dataset){ 
-          model = (Classifier)new Logistic();   
-         try {
-          model.buildClassifier(dataset);
-           // Test the model
-          Evaluation eTest = new Evaluation(dataset);
-          eTest.evaluateModel(model, dataset);
-
-          // Print the result à la Weka explorer:
-          String strSummary = eTest.toSummaryString();
-          System.out.println(strSummary); 
-          
-          double[][] cmMatrix = eTest.confusionMatrix();
-          for(int row_i=0; row_i<cmMatrix.length; row_i++){
-             for(int col_i=0; col_i<cmMatrix.length; col_i++){
-                 System.out.print(cmMatrix[row_i][col_i]);
-                 System.out.print("|");
-             }
-             System.out.println();
-            }
-             for (int i = 0; i< 10; i++){
-            double dist[] = model.distributionForInstance(dataset.instance(i));
-            System.out.println("instance_i = " + dataset.instance(i));
-            System.out.println("prediction  = " + dist[0]);
-             }
-          }
-        catch(Exception e) {
-     // If it fails, write the error message to screen
-           e.printStackTrace(); 
-         } 
-         
-   }   
-      
+  
   @Override
   public List<ClusteredMention> runCoreference(Document doc) {
     List<ClusteredMention> output;
     
     output = allSingleton(doc);
-    
     exactMatch(output);
     acronymMatch(output);
     noStopWordMatch(output);
@@ -164,29 +66,223 @@ public class EntityCentric implements CoreferenceSystem {
     //hobbsMatch(output, doc);
     pronounMatch(output);
     
+    //BestProbClassifier(output);
+    
+     
     return output;
   }
 
-  public double scoring(Mention m1, Mention m2){
-         try{
-           
-          Instance inst = new Instance(3);
-          int  distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
-           int lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
-          inst.setValue(dataset.attribute(0),distance);
-          inst.setValue(dataset.attribute(1),lemmaMatch);
-          inst.setValue(dataset.attribute(2), "yes");
-          inst.setMissing(inst.numAttributes()-1);  
-            //System.out.println("distance = " + distance);
-            double prob[] = model.distributionForInstance(inst);
-            return prob[0];
+  /**
+   * Extract features from the training data into a Weka dataset
+   * @param trainingData: the data which is used to extract features
+   * @return dataset
+   */
+  public Instances extract_train_features(Collection<Pair<Document, List<Entity>>> trainingData) {
+
+    // Build attributes list
+    Attribute Attribute1 = new Attribute("distance");
+    Attribute Attribute2 = new Attribute("lemmamatch");
+    Attribute Attribute3 = new Attribute("exactmatch");
+    Attribute Attribute4 = new Attribute("exactheadmatch");
+
+    FastVector fvClassVal = new FastVector(2);
+    fvClassVal.addElement("yes");
+    fvClassVal.addElement("no");
+    Attribute ClassAttribute = new Attribute("theClass", fvClassVal);
+
+    FastVector attributes = new FastVector(5);
+    attributes.addElement(Attribute1);   
+    attributes.addElement(Attribute2);
+    attributes.addElement(Attribute3);
+    attributes.addElement(Attribute4);
+    attributes.addElement(ClassAttribute);
+    
+    // Create dataset
+    dataset = new Instances("train_dataset", attributes, 0);
+		
+    for(Pair<Document, List<Entity>> pair : trainingData){
+      Document doc = pair.getFirst();
+      List<Entity> clusters = pair.getSecond();
+         
+      //Iterate Over Coreferent Mention Pairs
+      int distance;
+      int lemmaMatch;
+      int exactMatch;
+      int exactHeadMatch;
+        
+      
+      //Add positive instances
+      for(Entity e : clusters){
+        for(Pair<Mention, Mention> mentionPair : e.orderedMentionPairs()){
+          Mention m1 = mentionPair.getFirst();
+          Mention m2 = mentionPair.getSecond();
+          distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+          lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
+          exactMatch = (m1.gloss().equals(m2.gloss())) ? 0 : 1;
+          exactHeadMatch = (m1.headWord().equals(m2.headWord())) ? 0 : 1 ;
+          //add data into table
+          Instance row = new Instance(5);
+          row.setValue((Attribute)attributes.elementAt(0), distance);      
+          row.setValue((Attribute)attributes.elementAt(1), lemmaMatch); 
+          row.setValue((Attribute)attributes.elementAt(2), exactMatch);      
+          row.setValue((Attribute)attributes.elementAt(3), exactHeadMatch); 
+          row.setValue((Attribute)attributes.elementAt(4), "yes");    
+          dataset.add(row);
+        }
+      }
+      //Add negative instance 
+      for (Entity e : clusters){ 
+        for (Mention m1 : e.mentions){
+          for (Entity e2: clusters){
+            if (!e2.equals(e)){
+              for (Mention m2: e2.mentions){
+                distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+                exactMatch = (m1.gloss().equals(m2.gloss())) ? 0 : 1;
+                exactHeadMatch = (m1.headWord().equals(m2.headWord())) ? 0 : 1 ;
+                lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
+                //add data into table
+                Instance row = new Instance(5);
+                row.setValue((Attribute)attributes.elementAt(0), distance);      
+                row.setValue((Attribute)attributes.elementAt(1), lemmaMatch); 
+                row.setValue((Attribute)attributes.elementAt(2), exactMatch);      
+                row.setValue((Attribute)attributes.elementAt(3), exactHeadMatch); 
+                row.setValue((Attribute)attributes.elementAt(4), "no");    
+                dataset.add(row);
+              }
+            }
           }
-          catch(Exception e) {
-     // If it fails, write the error message to screen
-           e.printStackTrace(); 
-           return 99.0;
-        } 
-   } 
+        }
+      }
+    } 
+    
+    // Set last attribute as target
+    dataset.setClassIndex(dataset.numAttributes()-1);
+    return dataset;
+  }
+  
+  /**
+   * Build a logistic regression model  
+   * @param dataset: input Weka dataset which the model is built on
+   */
+  public void modeling(Instances dataset){ 
+    
+    try {
+      //build a logistic regression model
+      model = (Classifier)new Logistic();   
+      model.buildClassifier(dataset);
+      
+      // Test the model
+      Evaluation eTest = new Evaluation(dataset);
+      eTest.evaluateModel(model, dataset);
+
+      // Print the result à la Weka explorer:
+      String strSummary = eTest.toSummaryString();
+      System.out.println(strSummary); 
+
+      double[][] cmMatrix = eTest.confusionMatrix();
+      for(int row_i=0; row_i<cmMatrix.length; row_i++){
+         for(int col_i=0; col_i<cmMatrix.length; col_i++){
+             System.out.print(cmMatrix[row_i][col_i]);
+             System.out.print("|");
+         }
+         System.out.println();
+        }
+      //test scoring on the first 10 instances
+      for (int i = 0; i< 10; i++){
+        double dist[] = model.distributionForInstance(dataset.instance(i));
+        System.out.println("instance_i = " + dataset.instance(i));
+        System.out.println("prediction  = " + dist[0]);
+      }
+    }
+    
+    catch(Exception e) {
+      // If it fails, write the error message to screen
+      e.printStackTrace(); 
+    } 
+         
+  }   
+  
+  /**
+   * Use the logistic model to score how likely two mentions m1 and m2 belong to the same cluster
+   
+   * @return 
+   */ 
+  public double scoring(Mention m1, Mention m2){
+    try {
+
+      Instance inst = new Instance(5);
+      int  distance = java.lang.Math.abs(m1.doc.indexOfMention(m1) - m2.doc.indexOfMention(m2));
+      int lemmaMatch = (m1.headToken().lemma().equals(m2.headToken().lemma())) ? 0 : 1;
+      int exactMatch = (m1.gloss().equals(m2.gloss())) ? 0 : 1;
+      int exactHeadMatch = (m1.headWord().equals(m2.headWord())) ? 0 : 1 ;
+      inst.setValue(dataset.attribute(0),distance);
+      inst.setValue(dataset.attribute(1),lemmaMatch);
+      inst.setValue(dataset.attribute(2),exactMatch);
+      inst.setValue(dataset.attribute(3),exactHeadMatch);
+      inst.setValue(dataset.attribute(4), "yes");
+      inst.setMissing(inst.numAttributes()-1);  
+        //System.out.println("distance = " + distance);
+        double prob[] = model.distributionForInstance(inst);
+        return prob[0];
+     }
+    catch(Exception e) {
+    // If it fails, write the error message to screen
+      e.printStackTrace(); 
+      return 99.0;
+    } 
+  }
+  
+     
+  public static final double PROB_THRESHOLD = 0.60;   
+  /**
+   * Match with a mention which has the top probability and above a threshold
+   * @return 
+   */
+  public Entity getBestProb(List<ClusteredMention> clusters, Mention newMention){
+    double bestProb = 0.0;
+    Entity bestEntity = null;
+    double prob;
+    if (clusters != null) {
+      for (ClusteredMention cm : clusters){
+        prob = scoring(cm.mention, newMention);
+        if (prob > bestProb && prob > PROB_THRESHOLD){
+          bestProb = prob;
+          bestEntity = cm.entity;
+        }
+      }
+    }
+    return bestEntity;
+  }
+   
+/** 
+ * Merge mentions in terms of scoring probabilities 
+ */    
+public List<ClusteredMention> BestProbClassifier(List<ClusteredMention> currentClusters){
+   List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    
+    for (ClusteredMention curr : currentClusters) {
+       Entity bestMatch = getBestProb(currentClusters, curr.mention);
+      
+      if (bestMatch != null) {
+        curr.mention.changeCoreference(bestMatch);
+      }
+      output.add(curr);
+    }
+    return output;
+  }
+  
+ public List<ClusteredMention> allSingleton(Document doc) {
+    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
+    for (Mention m : doc.getMentions()) {
+      ClusteredMention newCluster = m.markSingleton();
+      output.add(newCluster);
+    }
+    return output;
+  }
+  
+      
+
+  
   /**
    * Return TRUE if either mention is a pronoun
    */
@@ -199,14 +295,7 @@ public class EntityCentric implements CoreferenceSystem {
    * @param doc - Document set with all Mentions
    * @return list of all ClusteredMentions
    */
-  public List<ClusteredMention> allSingleton(Document doc) {
-    List<ClusteredMention> output = new ArrayList<ClusteredMention>();
-    for (Mention m : doc.getMentions()) {
-      ClusteredMention newCluster = m.markSingleton();
-      output.add(newCluster);
-    }
-    return output;
-  }
+   
   
   /**
    * Merge clusters of any mentions with exact matches (excluding pronouns)
